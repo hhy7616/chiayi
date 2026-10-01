@@ -461,6 +461,33 @@ body[data-page="home"] .tico.h{display:none}
   .about{padding-top:calc(50 * var(--k));padding-bottom:calc(50 * var(--k))}
   .about p{margin-bottom:calc(46 * var(--k))}
 }
+
+/* v8：三大指標篩選 */
+.pin.sm{width:calc(64 * var(--k));height:calc(64 * var(--k));margin:calc(-32 * var(--k)) 0 0 calc(-32 * var(--k));border-width:calc(3 * var(--k))}
+@media (min-width:768px){.pin.sm{width:34px;height:34px;margin:-17px 0 0 -17px;border-width:2px}}
+.mfilter.mobile{position:absolute;z-index:3;left:calc(30 * var(--k));right:calc(30 * var(--k));top:calc(160 * var(--k))}
+.mtabs{display:flex;gap:calc(12 * var(--k));justify-content:center}
+.mtabs button{flex:0 0 auto;min-width:calc(150 * var(--k));height:calc(56 * var(--k));border-radius:999px;background:var(--page);border:calc(3 * var(--k)) solid #344034;
+  font-size:calc(28 * var(--k));font-weight:900;color:#344034;box-shadow:0 1px 3px rgba(0,0,0,.18)}
+.mtabs button[aria-pressed="true"]{background:#344034;color:#fff}
+.mlayers{display:flex;gap:calc(10 * var(--k));overflow-x:auto;scrollbar-width:none;margin-top:calc(12 * var(--k));padding-bottom:calc(4 * var(--k))}
+.mlayers::-webkit-scrollbar{display:none}
+.mlayers button{flex:0 0 auto;height:calc(48 * var(--k));padding:0 calc(20 * var(--k));border-radius:999px;background:rgba(255,250,243,.96);border:1px solid var(--navline);
+  font-size:calc(23 * var(--k));font-weight:700;color:#333;box-shadow:0 1px 3px rgba(0,0,0,.15)}
+.mlayers button[aria-pressed="true"]{background:var(--pin);border-color:var(--pin);color:#fff}
+.msoon{display:inline-block;background:rgba(255,250,243,.96);border-radius:999px;padding:calc(8 * var(--k)) calc(22 * var(--k));font-size:calc(23 * var(--k));color:var(--sub);box-shadow:0 1px 3px rgba(0,0,0,.15)}
+.mfilter.mobile .mlayers:empty{display:none}
+.lic{width:40px;height:40px;border-radius:50%;background:var(--pin);display:grid;place-items:center;flex:none}
+.lic svg{width:26px;height:26px;fill:none;stroke:#fff;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+.sheet p{max-height:40vh;overflow:auto}
+@media (min-width:768px){
+  .mapstage .mfilter.mobile{display:none}
+  .mside .mfilter .mtabs{justify-content:flex-start;gap:8px}
+  .mside .mtabs button{min-width:84px;height:36px;font-size:16px;border-width:2px}
+  .mside .mlayers{flex-wrap:wrap;overflow:visible;gap:8px;margin-top:12px}
+  .mside .mlayers button{height:32px;font-size:14px;padding:0 12px;box-shadow:none}
+  .mside .msoon{font-size:14px;padding:6px 12px;box-shadow:none;background:var(--band)}
+}
 </style>
 </head>
 <body>
@@ -605,30 +632,289 @@ const ARTICLES = [
    1. 到 Google Cloud Console 啟用「Maps JavaScript API」，建立 API 金鑰
    2. 金鑰限制「網站」只允許你們的網域（例如 https://你的帳號.github.io/*）
    3. 把金鑰貼在下面 key 裡。沒填金鑰、或放在 claude.ai 上時，會自動改用影片截圖地圖 */
-const GMAPS = { key:"", center:{lat:23.4800,lng:120.4490}, zoom:15 };
-/* 地點資料：lat、lng 是 Google 地圖用的經緯度（目前為依截圖推算的「約略位置」，請換成實際店家座標：
-   在 Google 地圖上對店家按右鍵，第一行數字就是「緯度, 經度」）。
-   x、y 是截圖地圖上的像素位置（圖寬 1080、高 1674），只在沒有 Google 地圖時使用。
-   洗衣店位置取自影片；其他為示範資料，請換成實際店家。 */
+const GMAPS = { key:"AIzaSyC7hvpbBKm4Q0FlLXXOWdOyw2YYdooKdNA", center:{lat:23.4800,lng:120.4490}, zoom:15 };
+/* ============ 三大指標與圖層 ============
+   每個地點屬於一個指標（生存／生活／生命）和一個圖層。圖層的 cat 對應首頁九個分類，
+   沒有對應的分類填 null。新增 Google 我的地圖資料時，把 KML 交給 Claude 轉換即可。 */
+const INDICATORS = [
+  {id:"survive",name:"生存"},
+  {id:"living",name:"生活"},
+  {id:"life",name:"生命"}
+];
+const LAYERS = [
+  {id:"laundry",ind:"survive",name:"洗脫烘一體洗衣店",cat:"laundry",glyph:"laundry"},
+  {id:"market", ind:"survive",name:"菜市場",cat:"market",glyph:"market"},
+  {id:"cafe",   ind:"survive",name:"插座網路、平日不限時咖啡廳",cat:"coffee",glyph:"coffee"},
+  {id:"cowork", ind:"survive",name:"共享辦公室",cat:"office",glyph:"office"},
+  {id:"clinic", ind:"survive",name:"假日有開的門診",cat:"medical",glyph:"medical"},
+  {id:"vet",    ind:"survive",name:"半夜有開的獸醫院",cat:"medical",glyph:"paw"},
+  {id:"housing",ind:"survive",name:"短租房源",cat:null,glyph:"house"},
+  {id:"toilet", ind:"survive",name:"公共廁所",cat:null,glyph:"toilet"}
+];
+/* 地點資料：由「小城生活攻略-生存」我的地圖 KML 轉換。lat、lng 為經緯度；
+   x、y 是在示意截圖地圖上的約略位置（沒有 Google 地圖時使用）。公共廁所已將同一地址的多間廁所合併成一筆。 */
 const PLACES = [
-  {cat:"laundry",x:881,y:526,lat:23.48632,lng:120.45721,name:"洗脫烘一體洗衣店",area:"民權路附近"},
-  {cat:"laundry",x:310,y:716,lat:23.48246,lng:120.44346,name:"洗脫烘一體洗衣店",area:"中興路／友愛路附近"},
-  {cat:"laundry",x:675,y:858,lat:23.47957,lng:120.45225,name:"洗脫烘一體洗衣店",area:"163 線附近"},
-  {cat:"laundry",x:743,y:865,lat:23.47943,lng:120.45389,name:"洗脫烘一體洗衣店",area:"163 線附近"},
-  {cat:"laundry",x:646,y:1251,lat:23.47159,lng:120.45155,name:"洗脫烘一體洗衣店",area:"建國村附近"},
-  {cat:"laundry",x:335,y:1465,lat:23.46724,lng:120.44406,name:"洗脫烘一體洗衣店",area:"重慶路附近"},
-  {cat:"coffee",x:780,y:760,lat:23.48156,lng:120.45478,name:"示範咖啡廳",area:"嘉義市區"},
-  {cat:"coffee",x:560,y:640,lat:23.48400,lng:120.44948,name:"示範咖啡廳",area:"嘉義市區"},
-  {cat:"coffee",x:930,y:900,lat:23.47872,lng:120.45839,name:"示範咖啡廳",area:"嘉義市區"},
-  {cat:"food",x:820,y:1000,lat:23.47669,lng:120.45574,name:"示範小吃店",area:"嘉義市區"},
-  {cat:"food",x:600,y:1080,lat:23.47506,lng:120.45044,name:"示範雞肉飯",area:"嘉義市區"},
-  {cat:"sport",x:420,y:560,lat:23.48563,lng:120.44611,name:"示範運動場",area:"嘉義市區"},
-  {cat:"office",x:880,y:700,lat:23.48278,lng:120.45719,name:"示範共享空間",area:"嘉義市區"},
-  {cat:"market",x:720,y:960,lat:23.47750,lng:120.45333,name:"示範市場",area:"嘉義市區"},
-  {cat:"medical",x:960,y:1120,lat:23.47425,lng:120.45911,name:"示範診所",area:"嘉義市區"},
-  {cat:"transport",x:1000,y:370,lat:23.48949,lng:120.46007,name:"北門車站",area:"北門"},
-  {cat:"transport",x:480,y:1010,lat:23.47649,lng:120.44756,name:"示範公車站",area:"嘉義市區"},
-  {cat:"arts",x:880,y:450,lat:23.48786,lng:120.45719,name:"示範展覽空間",area:"北門附近"}
+  {"ind":"survive","layer":"housing","name":"碰碰諸羅山","lat":23.472905,"lng":120.445028,"note":"","x":635,"y":977},
+  {"ind":"survive","layer":"housing","name":"仲青行旅嘉義館LIGHT HOSTEL","lat":23.477747,"lng":120.444052,"note":"","x":614,"y":859},
+  {"ind":"survive","layer":"housing","name":"中央第二商場","lat":23.478443,"lng":120.449137,"note":"短居空間Moly地點所在處 請聯絡 碰碰諸羅山老狼","x":727,"y":842},
+  {"ind":"survive","layer":"housing","name":"【窩在嘉】Chiayi 嘉義短期住宿","lat":23.482094,"lng":120.426489,"note":"","x":221,"y":753},
+  {"ind":"survive","layer":"housing","name":"一起來睡吧套房出租","lat":23.482346,"lng":120.430156,"note":"","x":303,"y":747},
+  {"ind":"survive","layer":"housing","name":"安蘭居旅店|嘉義火車站|青年旅館|美術館|文化路夜市|無障礙客房|寵物友善|親子住宿|家族旅遊|團體包房|旅遊行程建議","lat":23.476622,"lng":120.441727,"note":"","x":562,"y":886},
+  {"ind":"survive","layer":"laundry","name":"領潔自助洗烘衣嘉義嘉北店 Propre Coin Laundry Chiapei","lat":23.493904,"lng":120.454656,"note":"","x":851,"y":465},
+  {"ind":"survive","layer":"laundry","name":"ODay日式洗脫烘24H自助洗衣 文雅店","lat":23.482738,"lng":120.484078,"note":"","x":1508,"y":737},
+  {"ind":"survive","layer":"laundry","name":"林洗衣店 24H｜ODay歐日洗脫烘一次完成｜自助洗衣(嘉義台林店）","lat":23.495174,"lng":120.45473,"note":"","x":852,"y":434},
+  {"ind":"survive","layer":"laundry","name":"SeSA自助洗衣吧_洗脫烘一體(60min)_嘉義淌淌光彩店(可線上支付)","lat":23.477822,"lng":120.444786,"note":"","x":630,"y":857},
+  {"ind":"survive","layer":"laundry","name":"Life plus生活加24H自助洗衣(洗脫烘ㄧ機完成)","lat":23.472194,"lng":120.426044,"note":"","x":211,"y":994},
+  {"ind":"survive","layer":"laundry","name":"嘉義 洗靚坊 自助洗衣 Self-service laundry 洗脫烘一次完成 寵物專用洗烘機","lat":23.456206,"lng":120.459047,"note":"","x":949,"y":1384},
+  {"ind":"survive","layer":"laundry","name":"Oday洗脫烘24H日式自助洗衣（嘉義新民店）","lat":23.455461,"lng":120.435213,"note":"","x":416,"y":1402},
+  {"ind":"survive","layer":"laundry","name":"Oday日式洗脫烘24H自助洗衣（嘉義興美店）","lat":23.458418,"lng":120.449315,"note":"","x":731,"y":1330},
+  {"ind":"survive","layer":"laundry","name":"衣世代智能自助洗衣-嘉市德福店","lat":23.481558,"lng":120.431615,"note":"","x":335,"y":766},
+  {"ind":"survive","layer":"laundry","name":"O Day 洗脫烘日式自助洗衣一機完成嘉義加水站","lat":23.477703,"lng":120.44465,"note":"","x":627,"y":860},
+  {"ind":"survive","layer":"market","name":"嘉義市東公有零售市場","lat":23.478691,"lng":120.454407,"note":"為嘉義極具規模與歷史意義的市場，基本上什麼都買的到","x":845,"y":836},
+  {"ind":"survive","layer":"market","name":"嘉義市西市場","lat":23.479185,"lng":120.448406,"note":"營業種類：服飾、水產、中藥、花卉、日用百貨、果菜、獸肉、禽肉、 精品百貨、美容。","x":711,"y":824},
+  {"ind":"survive","layer":"market","name":"保安市場","lat":23.492986,"lng":120.435516,"note":"營業時間每日06時至12時\n營業種類︰包含果菜、獸肉、禽肉、魚類、雜貨、飲食、日用百貨。","x":423,"y":487},
+  {"ind":"survive","layer":"market","name":"北興公有零售市場辦公處","lat":23.4831,"lng":120.443954,"note":"營業時間:每日06時至12時。\n營業種類︰包含果菜、獸肉、禽肉、魚類、雜貨、飲食、日用百貨\n目前攤位數︰70攤","x":611,"y":728},
+  {"ind":"survive","layer":"market","name":"永和市場","lat":23.473883,"lng":120.440254,"note":"營業時間6:00-14:30\n位在嘉義遠東百貨附近的永和市場，又被稱為魚市傳統市場。","x":529,"y":953},
+  {"ind":"survive","layer":"market","name":"港坪市場大樓","lat":23.472421,"lng":120.424868,"note":"地下1樓及1、2樓為港坪市場。有興趣可以去看看盒盒盒盒","x":185,"y":989},
+  {"ind":"survive","layer":"vet","name":"高醫動物醫院 (Kao Yi Animal Hospital)","lat":23.477782,"lng":120.430552,"note":"須先電話聯絡！！","x":312,"y":858},
+  {"ind":"survive","layer":"vet","name":"班尼動物醫院/夜間急診","lat":23.471742,"lng":120.430752,"note":"須先電話聯絡！！","x":316,"y":1005},
+  {"ind":"survive","layer":"vet","name":"高品動物醫院","lat":23.478876,"lng":120.429111,"note":"須先電話聯絡！！","x":279,"y":831},
+  {"ind":"survive","layer":"cafe","name":"小口品s","lat":23.47773,"lng":120.447014,"note":"","x":680,"y":859},
+  {"ind":"survive","layer":"cafe","name":"往前咖啡製作所 / Forward roasters","lat":23.484115,"lng":120.449687,"note":"","x":739,"y":704},
+  {"ind":"survive","layer":"cafe","name":"貳陸陸杉Space","lat":23.481767,"lng":120.460084,"note":"","x":972,"y":761},
+  {"ind":"survive","layer":"cafe","name":"嚮日咖啡","lat":23.470865,"lng":120.450899,"note":"","x":767,"y":1027},
+  {"ind":"survive","layer":"cafe","name":"藏.咖啡 嘉義中山店","lat":23.480757,"lng":120.451816,"note":"","x":787,"y":786},
+  {"ind":"survive","layer":"cafe","name":"MIMICO COFFEE 秘密客咖啡館","lat":23.483672,"lng":120.449918,"note":"","x":745,"y":715},
+  {"ind":"survive","layer":"cafe","name":"咖啡一派 the coffee folks","lat":23.475799,"lng":120.443417,"note":"","x":599,"y":906},
+  {"ind":"survive","layer":"cafe","name":"Dopamine coffee 多巴胺","lat":23.472144,"lng":120.46326,"note":"","x":1043,"y":996},
+  {"ind":"survive","layer":"cafe","name":"Archers Kitchen 弓箭手","lat":23.471484,"lng":120.452248,"note":"","x":797,"y":1012},
+  {"ind":"survive","layer":"cafe","name":"明明MingMing(休假日於IG、FB專頁為主）","lat":23.488544,"lng":120.447037,"note":"","x":680,"y":596},
+  {"ind":"survive","layer":"cafe","name":"提娜多咖啡（早午餐/飯/麵）","lat":23.479953,"lng":120.454875,"note":"","x":855,"y":805},
+  {"ind":"survive","layer":"cafe","name":"二屾 Ershen","lat":23.477467,"lng":120.452534,"note":"","x":803,"y":866},
+  {"ind":"survive","layer":"cafe","name":"秘書店 Meet store","lat":23.48113,"lng":120.452729,"note":"","x":808,"y":776},
+  {"ind":"survive","layer":"cafe","name":"BES coffee","lat":23.482888,"lng":120.446923,"note":"","x":678,"y":734},
+  {"ind":"survive","layer":"cafe","name":"曉咖啡 In Chiayi","lat":23.46943,"lng":120.457359,"note":"","x":911,"y":1062},
+  {"ind":"survive","layer":"cafe","name":"蕨醒咖啡","lat":23.480281,"lng":120.447388,"note":"","x":688,"y":797},
+  {"ind":"survive","layer":"cafe","name":"suicafe隧咖啡","lat":23.477537,"lng":120.452317,"note":"","x":798,"y":864},
+  {"ind":"survive","layer":"cafe","name":"嘉義-秘氏咖啡(手沖咖啡、日式抹茶專賣）","lat":23.476705,"lng":120.448291,"note":"","x":708,"y":884},
+  {"ind":"survive","layer":"cafe","name":"她的咖啡 HER COFFEE","lat":23.476474,"lng":120.451622,"note":"","x":783,"y":890},
+  {"ind":"survive","layer":"clinic","name":"蔡耳鼻喉科診所","lat":23.480278,"lng":120.450086,"note":"看診時間：週一至週六 9:00–12:00、15:00–18:00、18:30–21:30；週日 9:00–12:00、18:00–21:00","x":748,"y":797},
+  {"ind":"survive","layer":"clinic","name":"欣愛診所happy love clinic","lat":23.484346,"lng":120.447709,"note":"","x":695,"y":698},
+  {"ind":"survive","layer":"clinic","name":"保安內兒科診所","lat":23.471803,"lng":120.439794,"note":"","x":518,"y":1004},
+  {"ind":"survive","layer":"clinic","name":"安心醫院","lat":23.453227,"lng":120.433383,"note":"","x":375,"y":1457},
+  {"ind":"survive","layer":"clinic","name":"衛生福利部嘉義醫院","lat":23.481477,"lng":120.429369,"note":"","x":285,"y":768},
+  {"ind":"survive","layer":"clinic","name":"慶昇醫療社團法人慶昇醫院","lat":23.480003,"lng":120.44382,"note":"","x":608,"y":804},
+  {"ind":"survive","layer":"clinic","name":"陽明醫院","lat":23.480476,"lng":120.453513,"note":"","x":825,"y":792},
+  {"ind":"survive","layer":"clinic","name":"祥太醫院","lat":23.475974,"lng":120.440414,"note":"","x":532,"y":902},
+  {"ind":"survive","layer":"clinic","name":"盧亞人醫院","lat":23.482126,"lng":120.447585,"note":"","x":692,"y":752},
+  {"ind":"survive","layer":"cowork","name":"曙光共享商務空間","lat":23.479464,"lng":120.4458,"note":"","x":653,"y":817},
+  {"ind":"survive","layer":"cowork","name":"將將好。共享空間","lat":23.4823,"lng":120.43581,"note":"","x":429,"y":748},
+  {"ind":"survive","layer":"cowork","name":"西門交誼創新所","lat":23.479053,"lng":120.451345,"note":"📌 申請方式說明\n▪ 可申請未來30天內使用日期\n▪ 單次申請以1週為上限\n▪ 使用期滿後可再次提出申請\n▪ 申請後將由管理單位進行審核與通知\n\n📍開館時間｜每週三至週日 10:00–20:00\n📍提供設備｜Wi-Fi、插座、共享工作空間\n📍使用費用｜免費（保證金500元）","x":777,"y":827},
+  {"ind":"survive","layer":"cowork","name":"諸羅設計塾","lat":23.483672,"lng":120.449918,"note":"","x":745,"y":715},
+  {"ind":"survive","layer":"cowork","name":"有事青年實驗室","lat":23.472401,"lng":120.430047,"note":"","x":300,"y":989},
+  {"ind":"survive","layer":"cowork","name":"秘書店 Meet store","lat":23.48113,"lng":120.452729,"note":"","x":808,"y":776},
+  {"ind":"survive","layer":"toilet","name":"耐斯王子大飯店（公廁）","lat":23.496423,"lng":120.453656,"note":"地址：嘉義市東區義教里忠孝路600號\n類型：女、無障礙、男\n有尿布台","x":828,"y":404},
+  {"ind":"survive","layer":"toilet","name":"台灣中油博愛路加油站（公廁）","lat":23.489056,"lng":120.445639,"note":"地址：嘉義市西區香湖里博愛路一段2號\n類型：女、男","x":649,"y":583},
+  {"ind":"survive","layer":"toilet","name":"博物館（公廁）","lat":23.48701,"lng":120.45144,"note":"地址：嘉義市東區北門里忠孝路275-1號\n類型：女、男、親子\n有尿布台","x":779,"y":633},
+  {"ind":"survive","layer":"toilet","name":"仁武宮（公廁）","lat":23.48133,"lng":120.450462,"note":"地址：嘉義市東區中央里北榮街54號\n類型：混合","x":757,"y":772},
+  {"ind":"survive","layer":"toilet","name":"財稅局（公廁）","lat":23.481786,"lng":120.454317,"note":"地址：嘉義市東區中山里中山路154號\n類型：女、性別友善、男\n有尿布台","x":843,"y":761},
+  {"ind":"survive","layer":"toilet","name":"財團法人九華山地藏庵（公廁）","lat":23.48325,"lng":120.4565,"note":"地址：嘉義市東區中山里民權路255號\n類型：女、男","x":892,"y":725},
+  {"ind":"survive","layer":"toilet","name":"市政府（公廁）","lat":23.481305,"lng":120.453566,"note":"地址：嘉義市東區東興里中山路199號\n類型：女、男\n有尿布台","x":826,"y":772},
+  {"ind":"survive","layer":"toilet","name":"警察局（公廁）","lat":23.481282,"lng":120.454633,"note":"地址：嘉義市東區東興里中山路195號\n類型：女、男","x":850,"y":773},
+  {"ind":"survive","layer":"toilet","name":"東區戶政事務所（公廁）","lat":23.478719,"lng":120.45343,"note":"地址：嘉義市東區民族里吳鳳北路184號\n類型：女、男","x":823,"y":835},
+  {"ind":"survive","layer":"toilet","name":"東市場（公廁）","lat":23.479066,"lng":120.453859,"note":"地址：嘉義市東區民族里忠孝路與光彩街\n類型：女、男\n有尿布台","x":833,"y":827},
+  {"ind":"survive","layer":"toilet","name":"城隍廟（公廁）","lat":23.478272,"lng":120.453803,"note":"地址：嘉義市東區民族里吳鳳北路168號\n類型：女、男","x":832,"y":846},
+  {"ind":"survive","layer":"toilet","name":"文昌公園（公廁）","lat":23.478352,"lng":120.45625,"note":"地址：嘉義市東區民族里蘭井街文昌街口\n類型：女、無障礙、男","x":886,"y":844},
+  {"ind":"survive","layer":"toilet","name":"嘉義公園（公廁）","lat":23.483796,"lng":120.463629,"note":"地址：嘉義市東區東川里啟明路\n類型：女、無障礙、男\n有尿布台","x":1051,"y":712},
+  {"ind":"survive","layer":"toilet","name":"嘉義公園（公廁）","lat":23.483854,"lng":120.464745,"note":"地址：嘉義市東區東川里嘉義公園近溜冰場旁\n類型：女、無障礙、男\n有尿布台","x":1076,"y":710},
+  {"ind":"survive","layer":"toilet","name":"嘉義公園遊戲區（公廁）","lat":23.482472,"lng":120.467296,"note":"地址：嘉義市東區東川里嘉義公園遊戲區旁\n類型：女、男\n有尿布台","x":1133,"y":744},
+  {"ind":"survive","layer":"toilet","name":"嘉義公園射日塔（公廁）","lat":23.482078,"lng":120.468198,"note":"地址：嘉義市東區東川里嘉義公園射日塔旁\n類型：女、男\n有尿布台","x":1153,"y":753},
+  {"ind":"survive","layer":"toilet","name":"嘉義公園孔廟（公廁）","lat":23.482514,"lng":120.466238,"note":"地址：嘉義市東區東川里嘉義公園孔廟旁\n類型：女、男","x":1110,"y":743},
+  {"ind":"survive","layer":"toilet","name":"228公園（公廁）","lat":23.476551,"lng":120.462856,"note":"地址：嘉義市東區東川里大雅路二段695號\n類型：女、無障礙、男\n有尿布台","x":1034,"y":888},
+  {"ind":"survive","layer":"toilet","name":"長榮公園（公廁）","lat":23.485004,"lng":120.457711,"note":"地址：嘉義市東區太平里長榮街\n類型：女、無障礙、男","x":919,"y":682},
+  {"ind":"survive","layer":"toilet","name":"體育場（公廁）","lat":23.471534,"lng":120.461329,"note":"地址：嘉義市東區新開里體育路2號\n類型：女、男","x":1000,"y":1010},
+  {"ind":"survive","layer":"toilet","name":"體育館（公廁）","lat":23.47348,"lng":120.46244,"note":"地址：嘉義市東區新開里彌陀路381號\n類型：女、男","x":1025,"y":963},
+  {"ind":"survive","layer":"toilet","name":"蘭潭水庫泛月公園（公廁）","lat":23.46674,"lng":120.479221,"note":"地址：嘉義市東區蘭潭里蘭潭水庫泛月公園旁\n類型：女、無障礙、男\n有尿布台","x":1400,"y":1127},
+  {"ind":"survive","layer":"toilet","name":"蘭潭水庫土地公廟（公廁）","lat":23.475198,"lng":120.488258,"note":"地址：嘉義市東區蘭潭里蘭潭水庫土地公廟旁\n類型：女、無障礙、男\n有尿布台","x":1602,"y":921},
+  {"ind":"survive","layer":"toilet","name":"蘭潭水庫三信亭（公廁）","lat":23.468344,"lng":120.476437,"note":"地址：嘉義市東區蘭潭里蘭潭水庫三信亭旁\n類型：女、無障礙、男\n有尿布台","x":1338,"y":1088},
+  {"ind":"survive","layer":"toilet","name":"東園軒（公廁）","lat":23.477531,"lng":120.474873,"note":"地址：嘉義市東區長竹里二段350號\n類型：男","x":1303,"y":864},
+  {"ind":"survive","layer":"toilet","name":"消防局（公廁）","lat":23.472863,"lng":120.467011,"note":"地址：嘉義市東區短竹里立學街16號\n類型：女、男","x":1127,"y":978},
+  {"ind":"survive","layer":"toilet","name":"南田公園（公廁）","lat":23.470478,"lng":120.456224,"note":"地址：嘉義市東區興南里南田路\n類型：女、無障礙、男","x":886,"y":1036},
+  {"ind":"survive","layer":"toilet","name":"宣信公園（公廁）","lat":23.46883,"lng":120.460009,"note":"地址：嘉義市東區芳安里南興路、宣信路口\n類型：女、無障礙、男\n有尿布台","x":970,"y":1076},
+  {"ind":"survive","layer":"toilet","name":"南興公園（公廁）","lat":23.46637,"lng":120.45799,"note":"地址：嘉義市東區頂寮里南興路177號\n類型：女、男","x":925,"y":1136},
+  {"ind":"survive","layer":"toilet","name":"台灣中油吳鳳路加油站（公廁）","lat":23.46903,"lng":120.45403,"note":"地址：嘉義市東區安業里吳鳳南路92號\n類型：女、無障礙、男","x":837,"y":1071},
+  {"ind":"survive","layer":"toilet","name":"鎮天宮（公廁）","lat":23.468295,"lng":120.460422,"note":"地址：嘉義市東區芳安里芳安路195號\n類型：女、男","x":980,"y":1089},
+  {"ind":"survive","layer":"toilet","name":"河濱運動公園（公廁）","lat":23.458517,"lng":120.462041,"note":"地址：嘉義市東區興仁里興仁街50號\n類型：女、無障礙、男","x":1016,"y":1328},
+  {"ind":"survive","layer":"toilet","name":"南興宮（公廁）","lat":23.456988,"lng":120.458932,"note":"地址：嘉義市東區興仁里興仁街245號\n類型：混合","x":946,"y":1365},
+  {"ind":"survive","layer":"toilet","name":"台灣中油北興加油站（公廁）","lat":23.49205,"lng":120.43335,"note":"地址：嘉義市西區保生里自由路436號\n類型：女、男","x":374,"y":510},
+  {"ind":"survive","layer":"toilet","name":"福懋大嘉加油站（公廁）","lat":23.484857,"lng":120.422047,"note":"地址：嘉義市西區北湖里北港路530之15號\n類型：女、男","x":122,"y":686},
+  {"ind":"survive","layer":"toilet","name":"世賢圖書館（公廁）","lat":23.489856,"lng":120.428524,"note":"地址：嘉義市西區保福里世賢路一段685號\n類型：女、男、親子","x":266,"y":564},
+  {"ind":"survive","layer":"toilet","name":"保安宮（公廁）","lat":23.490129,"lng":120.433919,"note":"地址：嘉義市西區保安里自由路245號\n類型：女、男","x":387,"y":557},
+  {"ind":"survive","layer":"toilet","name":"嘉交加油站（公廁）","lat":23.492993,"lng":120.395861,"note":"地址：嘉義市西區竹村里北港路1158號\n類型：女、男","x":-464,"y":487},
+  {"ind":"survive","layer":"toilet","name":"西區衛生所（公廁）","lat":23.480005,"lng":120.431026,"note":"地址：嘉義市西區福全里德明路1號\n類型：混合、親子","x":322,"y":804},
+  {"ind":"survive","layer":"toilet","name":"友忠公園（公廁）","lat":23.47706,"lng":120.432977,"note":"地址：嘉義市西區福全里友忠路鄰北港路\n類型：女、無障礙、男","x":366,"y":876},
+  {"ind":"survive","layer":"toilet","name":"台灣中油信義加油站（公廁）","lat":23.46881,"lng":120.42893,"note":"地址：嘉義市西區西平里博愛路二段519號\n類型：女、男","x":275,"y":1077},
+  {"ind":"survive","layer":"toilet","name":"番仔溝公園（公廁）","lat":23.47477,"lng":120.4363,"note":"地址：嘉義市西區西平里嘉雄陸橋下\n類型：女、無障礙、男\n有尿布台","x":440,"y":932},
+  {"ind":"survive","layer":"toilet","name":"南隱宮（公廁）","lat":23.478705,"lng":120.426254,"note":"地址：嘉義市西區西平里永春二街33號\n類型：女、男","x":216,"y":836},
+  {"ind":"survive","layer":"toilet","name":"港坪里運動公園（公廁）","lat":23.476981,"lng":120.421416,"note":"地址：嘉義市西區港坪里大同路320號\n類型：女、男","x":107,"y":878},
+  {"ind":"survive","layer":"toilet","name":"新光三越百貨B2（公廁）","lat":23.473393,"lng":120.441352,"note":"地址：嘉義市西區永和里垂楊路726號\n類型：女、混合、無障礙、男、親子\n有尿布台","x":553,"y":965},
+  {"ind":"survive","layer":"toilet","name":"遊天宮（公廁）","lat":23.475331,"lng":120.441569,"note":"地址：嘉義市西區書院里民族路750號\n類型：混合","x":558,"y":918},
+  {"ind":"survive","layer":"toilet","name":"地政事務所（公廁）","lat":23.479209,"lng":120.448307,"note":"地址：嘉義市西區文化里國華街245號\n類型：女、男","x":709,"y":823},
+  {"ind":"survive","layer":"toilet","name":"西市場（公廁）","lat":23.47939,"lng":120.448395,"note":"地址：嘉義市西區文化里國華街245號近國華街\n類型：女、男","x":711,"y":819},
+  {"ind":"survive","layer":"toilet","name":"台灣中油文化路加油站（公廁）","lat":23.47454,"lng":120.44997,"note":"地址：嘉義市西區文化里文化路11號\n類型：女、男","x":746,"y":937},
+  {"ind":"survive","layer":"toilet","name":"嘉義客運（公廁）","lat":23.479187,"lng":120.444529,"note":"地址：嘉義市西區西榮里中山路503號\n類型：女、男","x":624,"y":824},
+  {"ind":"survive","layer":"toilet","name":"嘉義火車站（公廁）","lat":23.479252,"lng":120.441365,"note":"地址：嘉義市西區番社里中山路528號\n類型：女、無障礙、男、親子\n有尿布台","x":553,"y":822},
+  {"ind":"survive","layer":"toilet","name":"中正公園（公廁）","lat":23.481771,"lng":120.447563,"note":"地址：嘉義市西區國華里國華街、民權路口\n類型：女、男\n有尿布台","x":692,"y":761},
+  {"ind":"survive","layer":"toilet","name":"遠東百貨B1（公廁）","lat":23.472755,"lng":120.44112,"note":"地址：嘉義市西區垂楊里垂楊路537號\n類型：女、男","x":548,"y":981},
+  {"ind":"survive","layer":"toilet","name":"西區戶政事務所（公廁）","lat":23.464453,"lng":120.435311,"note":"地址：嘉義市西區福民里錦州二街28號\n類型：女、性別友善、無障礙、男\n有尿布台","x":418,"y":1183},
+  {"ind":"survive","layer":"toilet","name":"民生公園（公廁）","lat":23.465557,"lng":120.443304,"note":"地址：嘉義市西區美源里嘉義市西區民生南路\n類型：女、無障礙、男\n有尿布台","x":597,"y":1156},
+  {"ind":"survive","layer":"toilet","name":"兆品酒店（公廁）","lat":23.482679,"lng":120.448773,"note":"地址：嘉義市西區國華里文化路257號\n類型：女、無障礙、男","x":719,"y":739},
+  {"ind":"survive","layer":"toilet","name":"東園軒（公廁）","lat":23.477531,"lng":120.474873,"note":"地址：嘉義市東區長竹里大雅路二段350號\n類型：女","x":1303,"y":864},
+  {"ind":"survive","layer":"toilet","name":"貴族世家嘉義大雅店（公廁）","lat":23.478913,"lng":120.478435,"note":"地址：嘉義市東區長竹里大雅路二段167號\n類型：女、男","x":1382,"y":831},
+  {"ind":"survive","layer":"toilet","name":"文化公園（公廁）","lat":23.474387,"lng":120.450643,"note":"地址：嘉義市東區過溝里文化路與民族路口\n類型：女、無障礙、男\n有尿布台","x":761,"y":941},
+  {"ind":"survive","layer":"toilet","name":"北興市場（公廁）","lat":23.483154,"lng":120.443965,"note":"地址：嘉義市西區慶安里北興陸橋下\n類型：女、男","x":612,"y":727},
+  {"ind":"survive","layer":"toilet","name":"嘉基留觀區前（公廁）","lat":23.499183,"lng":120.45011,"note":"地址：嘉義市東區中庄里忠孝路539號\n類型：女、男","x":749,"y":336},
+  {"ind":"survive","layer":"toilet","name":"嘉基神經內科（公廁）","lat":23.499026,"lng":120.450282,"note":"地址：嘉義市東區中庄里忠孝路650號\n類型：男","x":753,"y":340},
+  {"ind":"survive","layer":"toilet","name":"嘉基東院區門診大樓（公廁）","lat":23.499852,"lng":120.451355,"note":"地址：嘉義市東區義教里忠孝路642號\n類型：女、無障礙、男、親子\n有尿布台","x":777,"y":320},
+  {"ind":"survive","layer":"toilet","name":"聖馬爾定（公廁）","lat":23.476748,"lng":120.467405,"note":"地址：嘉義市東區蘭潭里大雅路二段565號\n類型：女、無障礙、男、親子\n有尿布台","x":1136,"y":883},
+  {"ind":"survive","layer":"toilet","name":"聖馬爾定（公廁）","lat":23.484463,"lng":120.461912,"note":"地址：嘉義市東區中山里民權路60號\n類型：女、男","x":1013,"y":695},
+  {"ind":"survive","layer":"toilet","name":"埤子頭植物園（公廁）","lat":23.489,"lng":120.44865,"note":"地址：嘉義市西區北榮里博愛路一段144-4號\n類型：女、無障礙、男","x":716,"y":585},
+  {"ind":"survive","layer":"toilet","name":"交通轉運中心（公廁）","lat":23.479735,"lng":120.440025,"note":"地址：嘉義市西區後驛里中興路1號\n類型：女、無障礙、男","x":523,"y":811},
+  {"ind":"survive","layer":"toilet","name":"劉厝1號公園（公廁）","lat":23.4682,"lng":120.415,"note":"地址：嘉義市西區劉厝里大和街與大富路交叉口街墎內\n類型：女、男","x":-36,"y":1092},
+  {"ind":"survive","layer":"toilet","name":"劉厝2號公園（公廁）","lat":23.4645,"lng":120.4172,"note":"地址：嘉義市西區劉厝里劉厝路與大利街墎內\n類型：女、男","x":13,"y":1182},
+  {"ind":"survive","layer":"toilet","name":"台灣中油興嘉加油站（公廁）","lat":23.46757,"lng":120.43405,"note":"地址：嘉義市西區車店里上海路246號\n類型：女、男","x":390,"y":1107},
+  {"ind":"survive","layer":"toilet","name":"中油世賢（公廁）","lat":23.4606,"lng":120.433,"note":"地址：嘉義市西區紅瓦里世賢路三段256號\n類型：混合","x":366,"y":1277},
+  {"ind":"survive","layer":"toilet","name":"順力加油站（公廁）","lat":23.4764,"lng":120.4283,"note":"地址：嘉義市西區磚磘里中興路591號\n類型：混合","x":261,"y":892},
+  {"ind":"survive","layer":"toilet","name":"福懋新民加油站（公廁）","lat":23.452,"lng":120.4314,"note":"地址：嘉義市西區紅瓦里新民路51號\n類型：女、男","x":331,"y":1487},
+  {"ind":"survive","layer":"toilet","name":"新民磐石加油站（公廁）","lat":23.45432,"lng":120.43386,"note":"地址：嘉義市西區湖內里新民路191號\n類型：女、男","x":386,"y":1430},
+  {"ind":"survive","layer":"toilet","name":"欣隆加油站（公廁）","lat":23.492,"lng":120.4724,"note":"地址：嘉義市東區圳頭里林森東路556號\n類型：混合","x":1247,"y":512},
+  {"ind":"survive","layer":"toilet","name":"台灣中油中山路加油站（公廁）","lat":23.48234,"lng":120.45936,"note":"地址：嘉義市東區中山里中山路90號\n類型：女、無障礙、男","x":956,"y":747},
+  {"ind":"survive","layer":"toilet","name":"威盛加油站（公廁）","lat":23.4906,"lng":120.4615,"note":"地址：嘉義市東區太平里博東路80號\n類型：女、男","x":1004,"y":546},
+  {"ind":"survive","layer":"toilet","name":"福懋嘉義加油站（公廁）","lat":23.5025,"lng":120.4494,"note":"地址：嘉義市東區後湖里忠孝路674號\n類型：女、男","x":733,"y":256},
+  {"ind":"survive","layer":"toilet","name":"興華加油站（公廁）","lat":23.4951,"lng":120.4561,"note":"地址：嘉義市東區頂庄里新生路702號\n類型：女、男","x":883,"y":436},
+  {"ind":"survive","layer":"toilet","name":"福懋文化加油站（公廁）","lat":23.5077,"lng":120.4363,"note":"地址：嘉義市東區荖藤里文化路1160號\n類型：女、男","x":440,"y":129},
+  {"ind":"survive","layer":"toilet","name":"中油台林（公廁）","lat":23.501,"lng":120.4568,"note":"地址：嘉義市東區後湖里台林街393號\n類型：無障礙、男","x":899,"y":292},
+  {"ind":"survive","layer":"toilet","name":"嘉峰加油站（公廁）","lat":23.4777,"lng":120.4708,"note":"地址：嘉義市東區長竹里大雅路二段497號\n類型：混合","x":1212,"y":860},
+  {"ind":"survive","layer":"toilet","name":"北社尾公園（公廁）","lat":23.4922,"lng":120.423,"note":"地址：嘉義市西區北湖里北社尾路上\n類型：女、無障礙、男\n有尿布台","x":143,"y":507},
+  {"ind":"survive","layer":"toilet","name":"台亞嘉安加油站（公廁）","lat":23.4851,"lng":120.4195,"note":"地址：嘉義市西區大溪里北港路593號\n類型：女、男","x":65,"y":680},
+  {"ind":"survive","layer":"toilet","name":"中油興達（公廁）","lat":23.4853,"lng":120.4358,"note":"地址：嘉義市西區竹圍里建國路95號\n類型：混合","x":429,"y":675},
+  {"ind":"survive","layer":"toilet","name":"台糖嘉保加油站（公廁）","lat":23.482858,"lng":120.418061,"note":"地址：嘉義市西區大溪里高鐵大道566號\n類型：女、無障礙、男","x":32,"y":734},
+  {"ind":"survive","layer":"toilet","name":"台灣中油嘉義高鐵北加油站（公廁）","lat":23.488331,"lng":120.400372,"note":"地址：嘉義市西區大溪里高鐵大道1250號\n類型：女、無障礙、男","x":-363,"y":601},
+  {"ind":"survive","layer":"toilet","name":"台灣中油嘉義高鐵南加油站（公廁）","lat":23.48696,"lng":120.402355,"note":"地址：嘉義市西區大溪里高鐵大道925號\n類型：女、無障礙、男","x":-319,"y":634},
+  {"ind":"survive","layer":"toilet","name":"星巴克嘉邑店（公廁）","lat":23.4751,"lng":120.461355,"note":"地址：嘉義市東區朝陽里垂楊路2號\n類型：女、男\n有尿布台","x":1000,"y":923},
+  {"ind":"survive","layer":"toilet","name":"摩斯漢堡吳鳳店（公廁）","lat":23.4739,"lng":120.4542,"note":"地址：嘉義市東區興南里垂楊路235號\n類型：女、男","x":840,"y":953},
+  {"ind":"survive","layer":"toilet","name":"麥當勞垂楊店（公廁）","lat":23.4737,"lng":120.448,"note":"地址：嘉義市西區文化里垂楊路468號\n類型：女、男","x":702,"y":958},
+  {"ind":"survive","layer":"toilet","name":"肯德基垂楊店（公廁）","lat":23.4738,"lng":120.4484,"note":"地址：嘉義市西區文化里垂楊路460號\n類型：女、男","x":711,"y":955},
+  {"ind":"survive","layer":"toilet","name":"家樂福嘉義店（公廁）","lat":23.4714,"lng":120.431,"note":"地址：嘉義市西區西平里博愛路二段461號\n類型：女、無障礙、男\n有尿布台","x":322,"y":1014},
+  {"ind":"survive","layer":"toilet","name":"大潤發（公廁）","lat":23.4789,"lng":120.4376,"note":"地址：嘉義市西區後驛里博愛路二段281號\n類型：女、無障礙、男\n有尿布台","x":469,"y":831},
+  {"ind":"survive","layer":"toilet","name":"麥當勞吳鳳南店（公廁）","lat":23.456185,"lng":120.458806,"note":"地址：嘉義市東區興村里吳鳳南路310號\n類型：女、男","x":943,"y":1385},
+  {"ind":"survive","layer":"toilet","name":"家樂福北門店（公廁）","lat":23.4896,"lng":120.4553,"note":"地址：嘉義市東區林森里忠孝路346巷21號\n類型：女、無障礙、男\n有尿布台","x":865,"y":570},
+  {"ind":"survive","layer":"toilet","name":"麥當勞忠孝店（公廁）","lat":23.4954,"lng":120.4515,"note":"地址：嘉義市東區中庄里忠孝路491號\n類型：女、男","x":780,"y":429},
+  {"ind":"survive","layer":"toilet","name":"麥當勞中山店（公廁）","lat":23.4799,"lng":120.448,"note":"地址：嘉義市西區國華里中山路318號\n類型：女、男","x":702,"y":806},
+  {"ind":"survive","layer":"toilet","name":"嘉年華戲院（公廁）","lat":23.4781,"lng":120.4414,"note":"地址：嘉義市西區書院里中山路617號\n類型：女、無障礙、男、親子","x":554,"y":850},
+  {"ind":"survive","layer":"toilet","name":"摩斯漢堡中山店（公廁）","lat":23.4792,"lng":120.4438,"note":"地址：嘉義市西區書院里中山路547號\n類型：女、男","x":608,"y":824},
+  {"ind":"survive","layer":"toilet","name":"麥當勞北港店（公廁）","lat":23.4802,"lng":120.4294,"note":"地址：嘉義市西區福安里北港路253號\n類型：女、男","x":286,"y":799},
+  {"ind":"survive","layer":"toilet","name":"肯德基中興店（公廁）","lat":23.47963,"lng":120.42917,"note":"地址：嘉義市西區福安里中興路396號\n類型：女、無障礙、男","x":281,"y":813},
+  {"ind":"survive","layer":"toilet","name":"星巴克中興店（公廁）","lat":23.479465,"lng":120.429049,"note":"地址：嘉義市西區福安里中興路398號\n類型：女、男","x":278,"y":817},
+  {"ind":"survive","layer":"toilet","name":"陽明醫院（公廁）","lat":23.48039,"lng":120.453394,"note":"地址：嘉義市東區東興里吳鳳北路252號\n類型：女、無障礙、男","x":822,"y":795},
+  {"ind":"survive","layer":"toilet","name":"盧亞人醫院（公廁）","lat":23.48218,"lng":120.447578,"note":"地址：嘉義市西區國華里民權路406號\n類型：女、男","x":692,"y":751},
+  {"ind":"survive","layer":"toilet","name":"嘉義醫院急診（公廁）","lat":23.479543,"lng":120.432215,"note":"地址：嘉義市西區福安里北港路312號\n類型：女、混合、無障礙、男、親子\n有尿布台","x":349,"y":815},
+  {"ind":"survive","layer":"toilet","name":"台中榮總嘉義分院A棟中醫（公廁）","lat":23.466789,"lng":120.423052,"note":"地址：嘉義市西區劉厝里世賢路二段600號\n類型：女、無障礙、男","x":144,"y":1126},
+  {"ind":"survive","layer":"toilet","name":"真武宮（公廁）","lat":23.489639,"lng":120.466826,"note":"地址：嘉義市東區新店里林森東路364巷6號\n類型：女、男","x":1123,"y":569},
+  {"ind":"survive","layer":"toilet","name":"順天宮（公廁）","lat":23.481108,"lng":120.443459,"note":"地址：嘉義市西區番社里林森西路452巷5號\n類型：混合","x":600,"y":777},
+  {"ind":"survive","layer":"toilet","name":"全家日新店（公廁）","lat":23.47419,"lng":120.464787,"note":"地址：嘉義市東區短竹里彌陀路238巷69號\n類型：混合","x":1077,"y":946},
+  {"ind":"survive","layer":"toilet","name":"全家博東店（公廁）","lat":23.49082,"lng":120.459766,"note":"地址：嘉義市東區太平里博東路183號\n類型：混合","x":965,"y":540},
+  {"ind":"survive","layer":"toilet","name":"全家宣信店（公廁）","lat":23.468403,"lng":120.460882,"note":"地址：嘉義市東區芳草里宣信街248號\n類型：混合","x":990,"y":1087},
+  {"ind":"survive","layer":"toilet","name":"全家興安店（公廁）","lat":23.45992,"lng":120.452707,"note":"地址：嘉義市東區興安里興安街199號\n類型：混合","x":807,"y":1294},
+  {"ind":"survive","layer":"toilet","name":"全家仁義店（公廁）","lat":23.494205,"lng":120.453973,"note":"地址：嘉義市東區仁義里台林街99號\n類型：混合","x":835,"y":458},
+  {"ind":"survive","layer":"toilet","name":"71嘉和門市（公廁）","lat":23.48168,"lng":120.45582,"note":"地址：嘉義市東區東興里中山路171號\n類型：混合","x":877,"y":763},
+  {"ind":"survive","layer":"toilet","name":"71新大業門市（公廁）","lat":23.463502,"lng":120.455432,"note":"地址：嘉義市東區安業里吳鳳南路194號\n類型：混合","x":868,"y":1206},
+  {"ind":"survive","layer":"toilet","name":"71立宣門市（公廁）","lat":23.4649,"lng":120.463564,"note":"地址：嘉義市東區芳安里立仁路120號\n類型：混合","x":1050,"y":1172},
+  {"ind":"survive","layer":"toilet","name":"71嘉雅門市（公廁）","lat":23.477359,"lng":120.473371,"note":"地址：嘉義市東區長竹里二段421號1樓\n類型：混合","x":1269,"y":868},
+  {"ind":"survive","layer":"toilet","name":"71嘉府門市（公廁）","lat":23.483263,"lng":120.455432,"note":"地址：嘉義市東區林森里民權路194號\n類型：混合","x":868,"y":725},
+  {"ind":"survive","layer":"toilet","name":"71嘉英門市（公廁）","lat":23.516263,"lng":120.442879,"note":"地址：嘉義市東區荖藤里忠孝北街206號\n類型：混合","x":587,"y":-80},
+  {"ind":"survive","layer":"toilet","name":"71新嘉基門市（公廁）","lat":23.5002,"lng":120.45074,"note":"地址：嘉義市東區義教里忠孝路650號\n類型：混合","x":763,"y":312},
+  {"ind":"survive","layer":"toilet","name":"71台林門市（公廁）","lat":23.493732,"lng":120.453608,"note":"地址：嘉義市東區仁義里新生路723號\n類型：混合","x":827,"y":469},
+  {"ind":"survive","layer":"toilet","name":"71元福門市（公廁）","lat":23.488491,"lng":120.465541,"note":"地址：嘉義市東區王田里林森東路288號\n類型：混合","x":1094,"y":597},
+  {"ind":"survive","layer":"toilet","name":"萊爾富嘉義啟園店（公廁）","lat":23.483893,"lng":120.462964,"note":"地址：嘉義市東區中山里啟民路283號\n類型：混合","x":1036,"y":709},
+  {"ind":"survive","layer":"toilet","name":"萊爾富嘉義國興店（公廁）","lat":23.469446,"lng":120.457943,"note":"地址：嘉義市東區宣信里興業東路160號\n類型：混合","x":924,"y":1061},
+  {"ind":"survive","layer":"toilet","name":"71新嘉勝門市（公廁）","lat":23.483912,"lng":120.441957,"note":"地址：嘉義市西區慶安里博愛路一段421號\n類型：混合","x":567,"y":709},
+  {"ind":"survive","layer":"toilet","name":"71八大門市（公廁）","lat":23.489305,"lng":120.43052,"note":"地址：嘉義市西區保安里八德路237號\n類型：混合","x":311,"y":577},
+  {"ind":"survive","layer":"toilet","name":"71新港坪門市（公廁）","lat":23.47171,"lng":120.426121,"note":"地址：嘉義市西區西平里玉山路203號\n類型：混合","x":213,"y":1006},
+  {"ind":"survive","layer":"toilet","name":"71資砡門市（公廁）","lat":23.470647,"lng":120.418203,"note":"地址：嘉義市西區港坪里玉山路422號\n類型：混合","x":36,"y":1032},
+  {"ind":"survive","layer":"toilet","name":"71博元門市（公廁）","lat":23.471572,"lng":120.430498,"note":"地址：嘉義市西區西平里博愛路二段572號\n類型：混合","x":310,"y":1009},
+  {"ind":"survive","layer":"toilet","name":"71嘉上門市（公廁）","lat":23.46612,"lng":120.432193,"note":"地址：嘉義市西區車店里上海路147號\n類型：混合","x":348,"y":1142},
+  {"ind":"survive","layer":"toilet","name":"全家上新店（公廁）","lat":23.47048,"lng":120.438352,"note":"地址：嘉義市西區垂楊里上海路322號\n類型：混合","x":486,"y":1036},
+  {"ind":"survive","layer":"toilet","name":"全家光路店（公廁）","lat":23.459359,"lng":120.44341,"note":"地址：嘉義市西區光路里民生南路530號\n類型：混合","x":599,"y":1307},
+  {"ind":"survive","layer":"toilet","name":"全家自強店（公廁）","lat":23.464978,"lng":120.422237,"note":"地址：嘉義市西區劉厝里自強街86號\n類型：混合","x":126,"y":1170},
+  {"ind":"survive","layer":"toilet","name":"71新瑞鴻門市（公廁）","lat":23.476158,"lng":120.449703,"note":"地址：嘉義市西區文化里民族路458號\n類型：混合","x":740,"y":898},
+  {"ind":"survive","layer":"toilet","name":"71鈺順門市（公廁）","lat":23.46992,"lng":120.44338,"note":"地址：嘉義市西區翠岱里新榮路35巷20號\n類型：混合","x":598,"y":1050},
+  {"ind":"survive","layer":"toilet","name":"嘉義噴水雞肉飯小雅店（公廁）","lat":23.47681,"lng":120.47017,"note":"地址：嘉義市東區長竹里小雅路382號\n類型：女、男","x":1197,"y":882},
+  {"ind":"survive","layer":"toilet","name":"玫瑰園咖啡簡餐（公廁）","lat":23.478018,"lng":120.46909,"note":"地址：嘉義市東區東川里大雅路二段536號\n類型：女、男","x":1173,"y":852},
+  {"ind":"survive","layer":"toilet","name":"左阜右邑新民店（公廁）","lat":23.466,"lng":120.4405,"note":"地址：嘉義市西區美源里新民路618號\n類型：女、男","x":534,"y":1145},
+  {"ind":"survive","layer":"toilet","name":"品田牧場嘉義國華店（公廁）","lat":23.480498,"lng":120.448474,"note":"地址：嘉義市西區國華里國華街212號\n類型：女、男","x":712,"y":792},
+  {"ind":"survive","layer":"toilet","name":"陶板屋嘉義林森西店（公廁）","lat":23.483783,"lng":120.447915,"note":"地址：嘉義市西區國華里林森西路153號\n類型：女、無障礙、男\n有尿布台","x":700,"y":712},
+  {"ind":"survive","layer":"toilet","name":"西堤牛排文化店（公廁）","lat":23.480763,"lng":120.449274,"note":"地址：嘉義市西區國華里文化路155號\n類型：女、無障礙、男\n有尿布台","x":730,"y":785},
+  {"ind":"survive","layer":"toilet","name":"左阜右邑新生店（公廁）","lat":23.496271,"lng":120.453951,"note":"地址：嘉義市東區義教里新生路830號\n類型：女、男","x":835,"y":407},
+  {"ind":"survive","layer":"toilet","name":"小原婚宴餐廳（公廁）","lat":23.487612,"lng":120.444338,"note":"地址：嘉義市西區湖邊里博愛路一段372號\n類型：女、無障礙、男\n有尿布台","x":620,"y":618},
+  {"ind":"survive","layer":"toilet","name":"千葉火鍋嘉義尊爵館（公廁）","lat":23.475026,"lng":120.46115,"note":"地址：嘉義市東區朝陽里垂楊路6號\n類型：女、男","x":996,"y":925},
+  {"ind":"survive","layer":"toilet","name":"点爭鮮嘉義店（公廁）","lat":23.4742,"lng":120.451999,"note":"地址：嘉義市東區過溝里垂楊路322號\n類型：混合、無障礙","x":791,"y":945},
+  {"ind":"survive","layer":"toilet","name":"樂檸漢堡嘉義中山市府門市（公廁）","lat":23.4811,"lng":120.45262,"note":"地址：嘉義市東區中央里中山路203號1樓\n類型：混合","x":805,"y":777},
+  {"ind":"survive","layer":"toilet","name":"嘉義噴水雞肉飯新民店（公廁）","lat":23.472423,"lng":120.439714,"note":"地址：嘉義市西區垂楊里新民路880號\n類型：混合","x":517,"y":989},
+  {"ind":"survive","layer":"toilet","name":"滿福樓海宴餐廳（公廁）","lat":23.475676,"lng":120.428234,"note":"地址：嘉義市西區磚磘里中興路615號\n類型：女、男","x":260,"y":909},
+  {"ind":"survive","layer":"toilet","name":"船老大囍宴餐廳（公廁）","lat":23.480194,"lng":120.436827,"note":"地址：嘉義市西區後驛里友忠路582號\n類型：女、男","x":452,"y":799},
+  {"ind":"survive","layer":"toilet","name":"晶饌婚宴會館（公廁）","lat":23.47885,"lng":120.435811,"note":"地址：嘉義市西區後驛里友忠路528號\n類型：女、男","x":429,"y":832},
+  {"ind":"survive","layer":"toilet","name":"一葉日本料理餐廳（公廁）","lat":23.468765,"lng":120.4281,"note":"地址：嘉義市西區西平里博愛路二段700號\n類型：女、男","x":257,"y":1078},
+  {"ind":"survive","layer":"toilet","name":"左阜右邑興達店（公廁）","lat":23.486,"lng":120.43485,"note":"地址：嘉義市西區下埤里興達路396號\n類型：女、無障礙、男","x":408,"y":658},
+  {"ind":"survive","layer":"toilet","name":"嘉義噴水雞肉飯博愛店（公廁）","lat":23.465431,"lng":120.424812,"note":"地址：嘉義市西區劉厝里博愛路二段844號\n類型：女、男","x":183,"y":1159},
+  {"ind":"survive","layer":"toilet","name":"留園 精緻料理（公廁）","lat":23.486707,"lng":120.437236,"note":"地址：嘉義市西區保生里興達路321號\n類型：女、男\n有尿布台","x":461,"y":641},
+  {"ind":"survive","layer":"toilet","name":"嘉基第二院區保健大樓（公廁）","lat":23.5006,"lng":120.45113,"note":"地址：嘉義市東區後湖里保健街100號\n類型：女、無障礙、男","x":772,"y":302},
+  {"ind":"survive","layer":"toilet","name":"71嘉西門市（公廁）","lat":23.48481,"lng":120.419509,"note":"地址：嘉義市西區大溪里北港路597號\n類型：混合","x":65,"y":687},
+  {"ind":"survive","layer":"toilet","name":"黃賓紀念圖書館（公廁）","lat":23.476539,"lng":120.446865,"note":"地址：嘉義市西區西榮里延平街328號\n類型：女、無障礙、男","x":676,"y":888},
+  {"ind":"survive","layer":"toilet","name":"文化中心（公廁）","lat":23.488025,"lng":120.452696,"note":"地址：嘉義市東區北門里忠孝路275號\n類型：女、男、親子\n有尿布台","x":807,"y":608},
+  {"ind":"survive","layer":"toilet","name":"安心醫院（公廁）","lat":23.453099,"lng":120.43333,"note":"地址：嘉義市西區湖內里新民路88號\n類型：女、無障礙、男","x":374,"y":1460},
+  {"ind":"survive","layer":"toilet","name":"全家八德店（公廁）","lat":23.488768,"lng":120.430509,"note":"地址：嘉義市西區保安里八德路240號\n類型：混合","x":311,"y":590},
+  {"ind":"survive","layer":"toilet","name":"全家漢口店（公廁）","lat":23.463738,"lng":120.436383,"note":"地址：嘉義市西區福民里南京路392號\n類型：混合","x":442,"y":1200},
+  {"ind":"survive","layer":"toilet","name":"嘉義樹木園（公廁）","lat":23.47842,"lng":120.4678,"note":"地址：嘉義市東區王田里山子頂270號\n類型：女、男","x":1144,"y":843},
+  {"ind":"survive","layer":"toilet","name":"嘉義魚市場南側（公廁）","lat":23.491474,"lng":120.39773,"note":"地址：嘉義市西區竹村里埤竹路52號\n類型：女、混合、男","x":-422,"y":524},
+  {"ind":"survive","layer":"toilet","name":"中央廣場（公廁）","lat":23.481782,"lng":120.450304,"note":"地址：嘉義市東區中央里興中街172之9號對面\n類型：女、無障礙、男\n有尿布台","x":753,"y":761},
+  {"ind":"survive","layer":"toilet","name":"先天宮公廁（公廁）","lat":23.472556,"lng":120.443805,"note":"地址：嘉義市西區培元里西門街46號\n類型：混合","x":608,"y":986},
+  {"ind":"survive","layer":"toilet","name":"果菜市場攤販區（公廁）","lat":23.491474,"lng":120.39773,"note":"地址：嘉義市西區竹村里埤竹路50號\n類型：女、無障礙、男","x":-422,"y":524},
+  {"ind":"survive","layer":"toilet","name":"冠閣商務大飯店（公廁）","lat":23.484176,"lng":120.434452,"note":"地址：嘉義市西區竹圍里忠順一街27號\n類型：女、無障礙、男\n有尿布台","x":399,"y":702},
+  {"ind":"survive","layer":"toilet","name":"檜意森活村T4（公廁）","lat":23.4861,"lng":120.45421,"note":"地址：嘉義市東區林森里共和路370號\n類型：女、無障礙、男","x":841,"y":655},
+  {"ind":"survive","layer":"toilet","name":"北香湖公園（公廁）","lat":23.491036,"lng":120.446119,"note":"地址：嘉義市西區香湖里文化路552號\n類型：女、無障礙、男\n有尿布台","x":660,"y":535},
+  {"ind":"survive","layer":"toilet","name":"秀泰生活嘉義店B2（公廁）","lat":23.486057,"lng":120.447686,"note":"地址：嘉義市西區國華里文化路299號\n類型：女、無障礙、男\n有尿布台","x":695,"y":656},
+  {"ind":"survive","layer":"toilet","name":"台灣中油林森路加油站（公廁）","lat":23.480514,"lng":120.443803,"note":"地址：嘉義市西區番社里林森西路281號\n類型：女、無障礙、男","x":608,"y":792},
+  {"ind":"survive","layer":"toilet","name":"228國家紀念公園（公廁）","lat":23.465225,"lng":120.412849,"note":"地址：嘉義市西區劉厝里大富路\n類型：女、無障礙、男\n有尿布台","x":-84,"y":1164},
+  {"ind":"survive","layer":"toilet","name":"文創園區O棟文創願景館（公廁）","lat":23.4767,"lng":120.4399,"note":"地址：嘉義市西區書院里中山路616號\n類型：女、無障礙、男\n有尿布台","x":521,"y":884},
+  {"ind":"survive","layer":"toilet","name":"麻辣風暴興達店（公廁）","lat":23.485463,"lng":120.434963,"note":"地址：嘉義市西區竹圍里興達358號\n類型：男","x":410,"y":671},
+  {"ind":"survive","layer":"toilet","name":"麻辣風暴興達店（公廁）","lat":23.485716,"lng":120.435769,"note":"地址：嘉義市西區竹圍里興達路358號\n類型：女","x":428,"y":665},
+  {"ind":"survive","layer":"toilet","name":"新新園火鍋友愛店（公廁）","lat":23.485477,"lng":120.433261,"note":"地址：嘉義市西區竹圍里友愛路271號\n類型：女、男","x":372,"y":671},
+  {"ind":"survive","layer":"toilet","name":"再耕園（公廁）","lat":23.472143,"lng":120.428089,"note":"地址：嘉義市西區西平里玉康路160號\n類型：混合","x":257,"y":996},
+  {"ind":"survive","layer":"toilet","name":"全聯民權店（公廁）","lat":23.483578,"lng":120.459498,"note":"地址：嘉義市東區中山里民權路177號\n類型：女、無障礙、男","x":959,"y":717},
+  {"ind":"survive","layer":"toilet","name":"愛木村（公廁）","lat":23.50244,"lng":120.43954,"note":"地址：嘉義市東區荖藤里文化路909-3號\n類型：女、無障礙、男","x":513,"y":257},
+  {"ind":"survive","layer":"toilet","name":"肯德基忠孝店（公廁）","lat":23.495062,"lng":120.451615,"note":"地址：嘉義市東區中庄里忠孝路489號\n類型：無障礙","x":783,"y":437},
+  {"ind":"survive","layer":"toilet","name":"久井世賢站（公廁）","lat":23.472,"lng":120.421,"note":"地址：嘉義市西區港坪里世賢路二段446號\n類型：男","x":98,"y":999},
+  {"ind":"survive","layer":"toilet","name":"中油嘉滿加油站（公廁）","lat":23.48538,"lng":120.42283,"note":"地址：嘉義市西區北湖里世賢路一段1062號\n類型：女、男","x":139,"y":673},
+  {"ind":"survive","layer":"toilet","name":"興嘉公園（公廁）","lat":23.467469,"lng":120.439505,"note":"地址：嘉義市西區車店里興業路、南京路口\n類型：女、無障礙、男\n有尿布台","x":512,"y":1110},
+  {"ind":"survive","layer":"toilet","name":"台灣中油嘉港加油站（公廁）","lat":23.488659,"lng":120.40994,"note":"地址：嘉義市西區下埤里北港路960號\n類型：女、男","x":-149,"y":593},
+  {"ind":"survive","layer":"toilet","name":"青少年服務中心（公廁）","lat":23.471699,"lng":120.459779,"note":"地址：嘉義市東區新開里體育路10號\n類型：混合","x":965,"y":1006},
+  {"ind":"survive","layer":"toilet","name":"嘉樂福夜市（公廁）","lat":23.47137,"lng":120.43133,"note":"地址：嘉義市西區西平里博愛路二段467號\n類型：女、男","x":329,"y":1014},
+  {"ind":"survive","layer":"toilet","name":"東區衛生所多功能（公廁）","lat":23.476849,"lng":120.46629,"note":"地址：嘉義市東區短竹里大雅路二段625號\n類型：性別友善、無障礙","x":1111,"y":881},
+  {"ind":"survive","layer":"toilet","name":"嘉北火車站（公廁）","lat":23.500603,"lng":120.451166,"note":"地址：嘉義市東區後湖里保建街110號\n類型：女、無障礙、男","x":773,"y":302},
+  {"ind":"survive","layer":"toilet","name":"保安攤販集中場（公廁）","lat":23.49324,"lng":120.43564,"note":"地址：嘉義市西區保生里保安一路236號\n類型：女、男","x":425,"y":481},
+  {"ind":"survive","layer":"toilet","name":"台亞嘉義交流道站（公廁）","lat":23.492276,"lng":120.397576,"note":"地址：嘉義市西區竹村里北港路1062號\n類型：女、無障礙、男","x":-426,"y":505},
+  {"ind":"survive","layer":"toilet","name":"台亞嘉義高鐵大道站（公廁）","lat":23.481871,"lng":120.419281,"note":"地址：嘉義市西區大溪里高鐵大道271號\n類型：女、無障礙、男","x":60,"y":758},
+  {"ind":"survive","layer":"toilet","name":"湖美夜市（公廁）","lat":23.45032,"lng":120.438177,"note":"地址：嘉義市西區湖內里湖美八路與健康二路口\n類型：混合","x":482,"y":1528},
+  {"ind":"survive","layer":"toilet","name":"嘉義in89豪華影城（公廁）","lat":23.476438,"lng":120.452734,"note":"地址：嘉義市東區過溝里民族路328號\n類型：女、無障礙、男、親子","x":808,"y":891},
+  {"ind":"survive","layer":"toilet","name":"嘉義縣公車大雅站（公廁）","lat":23.476668,"lng":120.465486,"note":"地址：嘉義市東區東川里大雅路二段635號\n類型：女、無障礙、男","x":1093,"y":885},
+  {"ind":"survive","layer":"toilet","name":"嘉油鐵馬道（公廁）","lat":23.458248,"lng":120.437447,"note":"地址：嘉義市西區紅瓦里南京路209號\n類型：女、無障礙、男\n有尿布台","x":466,"y":1334},
+  {"ind":"survive","layer":"toilet","name":"KANO遊客中心（公廁）","lat":23.482255,"lng":120.463989,"note":"地址：嘉義市東區東川里山子頂269號\n類型：女、無障礙、男","x":1059,"y":749},
+  {"ind":"survive","layer":"toilet","name":"湖子內公園管理中心（公廁）","lat":23.453402,"lng":120.448315,"note":"地址：嘉義市西區湖內里環湖路92號\n類型：女、無障礙、男、親子","x":709,"y":1452},
+  {"ind":"survive","layer":"toilet","name":"湖子內公園中側（公廁）","lat":23.451067,"lng":120.447119,"note":"地址：嘉義市西區湖內里湖美一路與健康十街交叉口\n類型：女、無障礙、男","x":682,"y":1509},
+  {"ind":"survive","layer":"toilet","name":"湖子內公園南側1（公廁）","lat":23.448503,"lng":120.447076,"note":"地址：嘉義市西區湖內里湖美一路與健康五街交叉口\n類型：女、無障礙、男","x":681,"y":1572},
+  {"ind":"survive","layer":"toilet","name":"湖子內公園南側2（公廁）","lat":23.443771,"lng":120.444622,"note":"地址：嘉義市西區湖內里湖美三路與環湖路旁交叉口\n類型：女、無障礙、男","x":626,"y":1687},
+  {"ind":"survive","layer":"toilet","name":"嘉義市立美術館本館（公廁）","lat":23.476917,"lng":120.440497,"note":"地址：嘉義市西區書院里廣寧街101號\n類型：女、無障礙、男、親子","x":534,"y":879}
 ];
 const VOTE = ["噴水雞肉飯","郭家雞肉飯","劉里長雞肉飯","桃城三禾火雞肉飯","民主火雞肉飯","阿樓師火雞肉飯"];
 
@@ -642,7 +928,10 @@ const GLYPH = {
   market:'<path d="M6 8h12l-1 12H7zM9 8a3 3 0 0 1 6 0"/>',
   medical:'<rect x="4" y="7" width="16" height="12" rx="2"/><path d="M12 10v6M9 13h6M9 7V5h6v2"/>',
   transport:'<rect x="5" y="4" width="14" height="13" rx="2"/><path d="M5 11h14M8 20l1-3M16 20l-1-3"/><circle cx="8.5" cy="14" r=".6"/><circle cx="15.5" cy="14" r=".6"/>',
-  arts:'<path d="M4 9l8-5 8 5zM6 9v9M10 9v9M14 9v9M18 9v9M3 20h18"/>'
+  arts:'<path d="M4 9l8-5 8 5zM6 9v9M10 9v9M14 9v9M18 9v9M3 20h18"/>',
+  house:'<path d="M4 11l8-6.5 8 6.5M6 9.5V20h12V9.5"/><path d="M10 20v-5h4v5"/>',
+  paw:'<circle cx="6.5" cy="10.5" r="1.7"/><circle cx="10" cy="6.5" r="1.7"/><circle cx="14" cy="6.5" r="1.7"/><circle cx="17.5" cy="10.5" r="1.7"/><path d="M8 17.5c0-3 1.8-5.5 4-5.5s4 2.5 4 5.5c0 1.6-1.8 2-4 2s-4-.4-4-2z"/>',
+  toilet:'<circle cx="7.5" cy="4.5" r="1.6"/><circle cx="16.5" cy="4.5" r="1.6"/><path d="M7.5 7.5v12M5.5 8.5h4v6M16.5 7.5l-3 7h6zM16.5 14.5v5M12 3v18"/>'
 };
 
 /* ============ 工具 ============ */
@@ -709,62 +998,107 @@ function pMap(){
   return `<div class="mapstage" id="stage">
     <div class="mapinner" id="inner"><img src="${IMG.map}" alt="嘉義市區地圖"><div id="pins"></div></div>
     <div class="mtitle">嘉義主題生活機能地圖</div>
-    <form class="msearch" id="mForm" role="search"><label class="sr" for="mQ">搜尋地點</label><input id="mQ" placeholder="洗脫烘一體的洗衣店" autocomplete="off">
+    <form class="msearch" id="mForm" role="search"><label class="sr" for="mQ">搜尋地點</label><input id="mQ" placeholder="搜尋店名或需求，例如：洗衣、廁所" autocomplete="off">
       <button aria-label="搜尋"><svg viewBox="0 0 24 24"><circle cx="10.5" cy="10.5" r="6"/><path d="M15 15l5 5"/></svg></button></form>
+    <div class="mfilter mobile">${filterHTML()}</div>
     <div class="zoom"><button id="zi" aria-label="放大">+</button><button id="zo" aria-label="縮小">−</button></div>
     <button class="full" id="reset" aria-label="重設地圖"><svg viewBox="0 0 24 24"><path d="M4 9V4h5M20 9V4h-5M4 15v5h5M20 15v5h-5"/></svg></button>
     <div class="sheet" id="sheet" role="dialog" aria-label="地點資訊"></div></div>
-  <aside class="mside" aria-label="地點列表"><h2>生活機能分類</h2><div class="mchips" id="mchips"><button data-c="">全部</button>${CATS.map(c=>`<button data-c="${c.id}">${c.name}</button>`).join("")}</div><h3 id="mcount"></h3><ul class="mlist" id="mlist"></ul></aside>`;
+  <aside class="mside" aria-label="地點列表"><h2>三大指標</h2><div class="mfilter">${filterHTML()}</div><h3 id="mcount"></h3><ul class="mlist" id="mlist"></ul></aside>`;
 }
 
-/* ============ 地圖互動 ============ */
+/* ============ 地圖：篩選邏輯（截圖地圖與 Google 地圖共用） ============ */
+const layerById=id=>LAYERS.find(l=>l.id===id);
+const indName=id=>(INDICATORS.find(i=>i.id===id)||{}).name||"";
+const glyphOf=p=>GLYPH[layerById(p.layer).glyph];
+function mapState(params){
+  const s={ind:params.get("ind")||"",layer:params.get("layer")||"",cat:params.get("cat")||"",q:params.get("q")||""};
+  if(!s.ind&&!s.layer&&!s.cat&&!s.q&&!params.has("place")){s.ind="survive";s.layer="laundry";}
+  if(s.layer&&!s.ind)s.ind=(layerById(s.layer)||{}).ind||"";
+  return s;
+}
+function matchPlace(p,s){
+  const L=layerById(p.layer);
+  if(s.cat) return L.cat===s.cat;
+  if(s.ind&&p.ind!==s.ind) return false;
+  if(s.layer&&p.layer!==s.layer) return false;
+  const t=s.q.trim(); if(!t) return true;
+  const c=CATS.find(c=>t.includes(c.name)||c.name.includes(t));
+  if(c&&L.cat===c.id) return true;
+  if(/洗|衣/.test(t)&&p.layer==="laundry") return true;
+  if(/廁|尿布/.test(t)&&p.layer==="toilet") return true;
+  if(/住|租|房/.test(t)&&p.layer==="housing") return true;
+  if(/寵物|獸|貓|狗/.test(t)&&p.layer==="vet") return true;
+  return (p.name+L.name+(p.note||"")).includes(t);
+}
+function filterHTML(){
+  return `<div class="mtabs">${INDICATORS.map(i=>`<button data-ind="${i.id}">${i.name}</button>`).join("")}</div><div class="mlayers" data-layers></div>`;
+}
+function syncFilter(s){
+  document.querySelectorAll("[data-ind]").forEach(b=>b.setAttribute("aria-pressed",String(b.dataset.ind===s.ind)));
+  const ls=LAYERS.filter(l=>l.ind===s.ind);
+  const html=s.ind
+    ? (ls.length?`<button data-layer="" aria-pressed="${!s.layer&&!s.q}">全部</button>`+ls.map(l=>`<button data-layer="${l.id}" aria-pressed="${s.layer===l.id}">${l.name}</button>`).join("")
+                :`<span class="msoon">「${indName(s.ind)}」指標的地點整理中，敬請期待</span>`)
+    : (s.cat?`<span class="msoon">分類：${catName(s.cat)}</span>`:(s.q?`<span class="msoon">搜尋全部指標</span>`:""));
+  document.querySelectorAll("[data-layers]").forEach(b=>b.innerHTML=html);
+}
+function countLabel(s){return s.cat?catName(s.cat):s.layer?layerById(s.layer).name:s.q.trim()?"「"+s.q.trim()+"」":indName(s.ind)+"・全部地點"}
+function listHTML(list){
+  return list.length?list.map(p=>`<li><button data-i="${p.i}"><i class="lic"><svg viewBox="0 0 24 24">${glyphOf(p)}</svg></i><span><b>${esc(p.name)}</b><small>${indName(p.ind)}・${layerById(p.layer).name}</small></span></button></li>`).join("")
+    :`<li class="mempty">這裡的地點還在整理中，換個指標或分類看看。</li>`;
+}
+function sheetHTML(p){
+  const nav=`https://www.google.com/maps/dir/?api=1&destination=${p.lat},${p.lng}`;
+  return `<button class="x" aria-label="關閉">✕</button><h3>${esc(p.name)}</h3><div class="meta">${indName(p.ind)}・${layerById(p.layer).name}</div>`+
+    (p.note?`<p>${esc(p.note).replace(/\n/g,"<br>")}</p>`:"")+
+    `<p><a href="${nav}" target="_blank" rel="noopener" style="text-decoration:underline">用 Google 地圖導航前往</a></p>`;
+}
+function bindFilter(s,onChange){
+  document.querySelectorAll(".mfilter").forEach(box=>box.onclick=e=>{
+    const t=e.target.closest("[data-ind]"); if(t){s.ind=t.dataset.ind;s.layer="";s.cat="";s.q="";$("#mQ").value="";onChange(true);return}
+    const l=e.target.closest("[data-layer]"); if(l){s.layer=l.dataset.layer;s.cat="";s.q="";$("#mQ").value="";onChange(true)}
+  });
+  $("#mForm").onsubmit=e=>{e.preventDefault();s.q=$("#mQ").value;s.cat="";s.layer="";s.ind="";if(!onChange(true))toast("找不到符合的地點")};
+  $("#mQ").oninput=()=>{s.q=$("#mQ").value;s.cat="";s.layer="";s.ind=s.q.trim()?"":"survive";onChange(false)};
+}
+
+/* ============ 截圖地圖 ============ */
 function initStaticMap(params){
   const stage=$("#stage"), inner=$("#inner"); const st={s:1,x:0,y:0};
-  let cat=params.get("cat")||"", q=params.get("q")||"";
-  if(!cat&&!q&&!params.has("all")) q="洗脫烘一體的洗衣店";
-  const input=$("#mQ");
-  input.value = q || (cat ? catName(cat) : "");
+  const s=mapState(params); $("#mQ").value=s.q;
   function clamp(){
     const W=stage.clientWidth,H=stage.clientHeight,w=inner.offsetWidth*st.s,h=inner.offsetHeight*st.s;
     st.x=w<W?(W-w)/2:Math.min(0,Math.max(W-w,st.x)); st.y=h<H?(H-h)/2:Math.min(0,Math.max(H-h,st.y));
   }
   function apply(){clamp();inner.style.transform=`translate(${st.x}px,${st.y}px) scale(${st.s})`;
     document.querySelectorAll(".pin").forEach(p=>p.style.transform=`scale(${1/Math.sqrt(st.s)})`)}
-  function zoom(f,cx,cy){const ns=Math.max(1,Math.min(4,st.s*f));const k=ns/st.s;st.x=cx-(cx-st.x)*k;st.y=cy-(cy-st.y)*k;st.s=ns;apply()}
-  function matches(p){
-    if(cat) return p.cat===cat;
-    const t=q.trim(); if(!t) return true;
-    const c=CATS.find(c=>t.includes(c.name)||c.name.includes(t)) || (t.includes("洗")?{id:"laundry"}:null) || (t.includes("咖啡")?{id:"coffee"}:null);
-    return c ? p.cat===c.id : (p.name+p.area).includes(t);
-  }
+  function zoom(f,cx,cy){const ns=Math.max(1,Math.min(5,st.s*f));const k=ns/st.s;st.x=cx-(cx-st.x)*k;st.y=cy-(cy-st.y)*k;st.s=ns;apply()}
+  const onMap=p=>p.x>=0&&p.x<=1080&&p.y>=0&&p.y<=1674;
   function render(){
-    const list=PLACES.map((p,i)=>({...p,i})).filter(matches);
-    $("#pins").innerHTML=list.map(p=>`<button class="pin" data-i="${p.i}" style="left:${(p.x/10.8).toFixed(3)}%;top:${(p.y/16.74).toFixed(3)}%" aria-label="${esc(p.name)}"><svg viewBox="0 0 24 24">${GLYPH[p.cat]}</svg></button>`).join("");
-    const ml=$("#mlist");
-    if(ml){$("#mcount").textContent=(cat?catName(cat):(q.trim()?"「"+q.trim()+"」":"全部地點"))+`（${list.length}）`;
-      ml.innerHTML=list.length?list.map(p=>`<li><button data-i="${p.i}"><img src="${IMG["ic_"+p.cat]}" alt=""><span><b>${esc(p.name)}</b><small>${catName(p.cat)}・${esc(p.area)}</small></span></button></li>`).join(""):`<li class="mempty">找不到符合的地點，換個分類試試。</li>`;
-      document.querySelectorAll("#mchips button").forEach(b=>b.setAttribute("aria-pressed",String(b.dataset.c===cat)));}
+    const list=PLACES.map((p,i)=>({...p,i})).filter(p=>matchPlace(p,s));
+    $("#pins").innerHTML=list.filter(onMap).map(p=>`<button class="pin${p.layer==="toilet"?" sm":""}" data-i="${p.i}" style="left:${(p.x/10.8).toFixed(3)}%;top:${(p.y/16.74).toFixed(3)}%" aria-label="${esc(p.name)}"><svg viewBox="0 0 24 24">${glyphOf(p)}</svg></button>`).join("");
+    syncFilter(s);
+    const ml=$("#mlist"); if(ml){$("#mcount").textContent=countLabel(s)+`（${list.length}）`;ml.innerHTML=listHTML(list);}
     apply(); return list.length;
   }
-  function focusPin(i){const p=PLACES[i];const W=stage.clientWidth,H=stage.clientHeight;if(st.s<1.6)st.s=1.6;
-    st.x=W/2-p.x/1080*inner.offsetWidth*st.s;st.y=H/2-p.y/1674*inner.offsetHeight*st.s;apply();open(i)}
-  const mc=$("#mchips");if(mc)mc.onclick=e=>{const b=e.target.closest("button");if(!b)return;cat=b.dataset.c;q="";input.value=cat?catName(cat):"";$("#sheet").classList.remove("open");render()};
-  const mlst=$("#mlist");if(mlst)mlst.onclick=e=>{const b=e.target.closest("button[data-i]");if(b)focusPin(+b.dataset.i)};
   function open(i){
-    const p=PLACES[i]; document.querySelectorAll("#mlist button").forEach(b=>b.classList.toggle("on",+b.dataset.i===i)); document.querySelectorAll(".pin").forEach(b=>b.classList.toggle("sel",+b.dataset.i===i));
-    const sh=$("#sheet"); const demo=p.cat!=="laundry"&&p.name.startsWith("示範");
-    sh.innerHTML=`<button class="x" aria-label="關閉">✕</button><h3>${esc(p.name)}</h3><div class="meta">${catName(p.cat)}・${esc(p.area)}</div>${demo?`<span class="note">示範資料，請替換成實際店家</span>`:""}`;
+    document.querySelectorAll("#mlist button").forEach(b=>b.classList.toggle("on",+b.dataset.i===i)); document.querySelectorAll(".pin").forEach(b=>b.classList.toggle("sel",+b.dataset.i===i));
+    const p=PLACES[i], sh=$("#sheet");
+    sh.innerHTML=sheetHTML(p)+(onMap(p)?`<span class="note">示意地圖，位置為約略標示</span>`:`<span class="note">這個地點在示意地圖範圍外，請用導航查看</span>`);
     sh.classList.add("open"); sh.querySelector(".x").onclick=()=>{sh.classList.remove("open");document.querySelectorAll(".pin.sel").forEach(b=>b.classList.remove("sel"))};
   }
+  function focusPin(i){const p=PLACES[i];if(onMap(p)){const W=stage.clientWidth,H=stage.clientHeight;if(st.s<1.8)st.s=1.8;
+    st.x=W/2-p.x/1080*inner.offsetWidth*st.s;st.y=H/2-p.y/1674*inner.offsetHeight*st.s;apply();}open(i)}
+  bindFilter(s,()=>{$("#sheet").classList.remove("open");return render()});
+  const mlst=$("#mlist");if(mlst)mlst.onclick=e=>{const b=e.target.closest("button[data-i]");if(b)focusPin(+b.dataset.i)};
   $("#pins").addEventListener("click",e=>{const b=e.target.closest(".pin");if(b&&!moved)open(+b.dataset.i)});
-  $("#mForm").onsubmit=e=>{e.preventDefault();cat="";q=input.value;if(!render())toast("找不到符合的地點")};
-  input.oninput=()=>{cat="";q=input.value;render()};
   const mid=()=>[stage.clientWidth/2,stage.clientHeight/2];
   $("#zi").onclick=()=>zoom(1.4,...mid()); $("#zo").onclick=()=>zoom(1/1.4,...mid());
   $("#reset").onclick=()=>{st.s=1;st.x=0;st.y=0;apply()};
   stage.addEventListener("wheel",e=>{e.preventDefault();const r=stage.getBoundingClientRect();zoom(e.deltaY>0?.88:1.14,e.clientX-r.left,e.clientY-r.top)},{passive:false});
   const pts=new Map();let moved=false,pd=0,sx=0,sy=0;
-  stage.addEventListener("pointerdown",e=>{if(e.target.closest(".msearch,.zoom,.full,.sheet"))return;pts.set(e.pointerId,{x:e.clientX,y:e.clientY});moved=false;sx=e.clientX;sy=e.clientY;
+  stage.addEventListener("pointerdown",e=>{if(e.target.closest(".msearch,.mfilter,.zoom,.full,.sheet"))return;pts.set(e.pointerId,{x:e.clientX,y:e.clientY});moved=false;sx=e.clientX;sy=e.clientY;
     if(pts.size===2){const[a,b]=[...pts.values()];pd=Math.hypot(a.x-b.x,a.y-b.y)}});
   stage.addEventListener("pointermove",e=>{if(!pts.has(e.pointerId))return;const pr=pts.get(e.pointerId),c={x:e.clientX,y:e.clientY};pts.set(e.pointerId,c);
     if(pts.size===1){if(Math.hypot(c.x-sx,c.y-sy)>5){moved=true;inner.classList.add("drag");try{stage.setPointerCapture(e.pointerId)}catch(_){}}
@@ -775,6 +1109,7 @@ function initStaticMap(params){
   stage.addEventListener("pointerup",end);stage.addEventListener("pointercancel",end);
   const onR=()=>apply(); addEventListener("resize",onR); initMap.cleanup=()=>removeEventListener("resize",onR);
   render();
+  if(params.get("place"))focusPin(+params.get("place"));
 }
 
 /* ============ 地圖：Google 地圖或截圖地圖 ============ */
@@ -807,10 +1142,11 @@ const MAP_STYLE=[
   {featureType:"poi.business",stylers:[{visibility:"off"}]},
   {featureType:"transit.line",elementType:"geometry",stylers:[{color:"#c9c2b6"}]}
 ];
-function pinIcon(cat,sel){
-  const g=GLYPH[cat].replace(/var\(--pin\)/g,sel?"#DA722D":"#3377C5");
-  const svg=`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48"><circle cx="24" cy="24" r="21" fill="${sel?"#DA722D":"#3377C5"}" stroke="#fff" stroke-width="3"/><g transform="translate(9 9) scale(1.25)" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${g}</g></svg>`;
-  return {url:"data:image/svg+xml;charset=UTF-8,"+encodeURIComponent(svg),scaledSize:new google.maps.Size(46,46),anchor:new google.maps.Point(23,23)};
+function pinIcon(p,sel){
+  const col=sel?"#DA722D":"#3377C5", g=glyphOf(p).replace(/var\(--pin\)/g,col);
+  const svg=`<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 48 48"><circle cx="24" cy="24" r="21" fill="${col}" stroke="#fff" stroke-width="3"/><g transform="translate(9 9) scale(1.25)" fill="none" stroke="#fff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">${g}</g></svg>`;
+  const z=p.layer==="toilet"?34:44;
+  return {url:"data:image/svg+xml;charset=UTF-8,"+encodeURIComponent(svg),scaledSize:new google.maps.Size(z,z),anchor:new google.maps.Point(z/2,z/2)};
 }
 async function initGoogle(params){
   const stage=$("#stage"); stage.classList.add("gmode");
@@ -819,37 +1155,28 @@ async function initGoogle(params){
   if(!document.body.contains(holder)) return;
   const map=new google.maps.Map(holder,{center:GMAPS.center,zoom:GMAPS.zoom,styles:MAP_STYLE,disableDefaultUI:true,zoomControl:true,
     fullscreenControl:false,clickableIcons:false,gestureHandling:"greedy"});
-  let cat=params.get("cat")||"", q=params.get("q")||"", sel=-1;
-  if(!cat&&!q&&!params.has("all")) q="洗脫烘一體的洗衣店";
-  const input=$("#mQ"); input.value=q||(cat?catName(cat):"");
-  const markers=PLACES.map((p,i)=>{const m=new google.maps.Marker({position:{lat:p.lat,lng:p.lng},icon:pinIcon(p.cat),title:p.name,animation:google.maps.Animation.DROP});
+  const s=mapState(params); $("#mQ").value=s.q; let sel=-1;
+  const markers=PLACES.map((p,i)=>{const m=new google.maps.Marker({position:{lat:p.lat,lng:p.lng},icon:pinIcon(p),title:p.name});
     m.addListener("click",()=>open(i));return m});
-  function matches(p){ if(cat) return p.cat===cat; const t=q.trim(); if(!t) return true;
-    const c=CATS.find(c=>t.includes(c.name)||c.name.includes(t))||(t.includes("洗")?{id:"laundry"}:null)||(t.includes("咖啡")?{id:"coffee"}:null);
-    return c?p.cat===c.id:(p.name+p.area).includes(t); }
   function render(fit){
-    const list=PLACES.map((p,i)=>({...p,i})).filter(matches); const b=new google.maps.LatLngBounds();
-    markers.forEach((m,i)=>{const on=list.some(p=>p.i===i);m.setMap(on?map:null);if(on)b.extend(m.getPosition())});
-    if(fit&&list.length>1)map.fitBounds(b,{top:120,bottom:40,left:40,right:40}); else if(fit&&list.length===1)map.panTo(b.getCenter());
-    const ml=$("#mlist");
-    if(ml){$("#mcount").textContent=(cat?catName(cat):(q.trim()?"「"+q.trim()+"」":"全部地點"))+`（${list.length}）`;
-      ml.innerHTML=list.length?list.map(p=>`<li><button data-i="${p.i}"><img src="${IMG["ic_"+p.cat]}" alt=""><span><b>${esc(p.name)}</b><small>${catName(p.cat)}・${esc(p.area)}</small></span></button></li>`).join(""):`<li class="mempty">找不到符合的地點，換個分類試試。</li>`;
-      document.querySelectorAll("#mchips button").forEach(x=>x.setAttribute("aria-pressed",String(x.dataset.c===cat)));}
+    const list=PLACES.map((p,i)=>({...p,i})).filter(p=>matchPlace(p,s)); const b=new google.maps.LatLngBounds();
+    const on=new Set(list.map(p=>p.i));
+    markers.forEach((m,i)=>{const v=on.has(i);if(v&&!m.getMap()){m.setAnimation(list.length<40?google.maps.Animation.DROP:null)}m.setMap(v?map:null);if(v)b.extend(m.getPosition())});
+    if(fit&&list.length>1)map.fitBounds(b,{top:170,bottom:40,left:40,right:40}); else if(fit&&list.length===1){map.panTo(b.getCenter());map.setZoom(16)}
+    syncFilter(s);
+    const ml=$("#mlist"); if(ml){$("#mcount").textContent=countLabel(s)+`（${list.length}）`;ml.innerHTML=listHTML(list);}
     return list.length;
   }
   function open(i){
-    if(sel>=0)markers[sel].setIcon(pinIcon(PLACES[sel].cat)); sel=i; markers[i].setIcon(pinIcon(PLACES[i].cat,true));
+    if(sel>=0)markers[sel].setIcon(pinIcon(PLACES[sel])); sel=i; markers[i].setIcon(pinIcon(PLACES[i],true));
     document.querySelectorAll("#mlist button").forEach(b=>b.classList.toggle("on",+b.dataset.i===i));
-    const p=PLACES[i], sh=$("#sheet"), nav=`https://www.google.com/maps/dir/?api=1&destination=${p.lat},${p.lng}`;
-    sh.innerHTML=`<button class="x" aria-label="關閉">✕</button><h3>${esc(p.name)}</h3><div class="meta">${catName(p.cat)}・${esc(p.area)}</div><span class="note">位置為示意，請替換成實際店家</span><p><a href="${nav}" target="_blank" rel="noopener" style="text-decoration:underline">用 Google 地圖導航前往</a></p>`;
-    sh.classList.add("open"); sh.querySelector(".x").onclick=()=>{sh.classList.remove("open");markers[sel].setIcon(pinIcon(PLACES[sel].cat));sel=-1};
+    const sh=$("#sheet"); sh.innerHTML=sheetHTML(PLACES[i]);
+    sh.classList.add("open"); sh.querySelector(".x").onclick=()=>{sh.classList.remove("open");if(sel>=0)markers[sel].setIcon(pinIcon(PLACES[sel]));sel=-1};
   }
-  $("#mForm").onsubmit=e=>{e.preventDefault();cat="";q=input.value;if(!render(true))toast("找不到符合的地點")};
-  input.oninput=()=>{cat="";q=input.value;render(false)};
-  const mc=$("#mchips");if(mc)mc.onclick=e=>{const b=e.target.closest("button");if(!b)return;cat=b.dataset.c;q="";input.value=cat?catName(cat):"";$("#sheet").classList.remove("open");render(true)};
+  bindFilter(s,fit=>{$("#sheet").classList.remove("open");return render(fit)});
   const ml=$("#mlist");if(ml)ml.onclick=e=>{const b=e.target.closest("button[data-i]");if(!b)return;const i=+b.dataset.i;map.panTo(markers[i].getPosition());map.setZoom(17);open(i)};
   render(true);
-  if(params.get("place"))open(+params.get("place"));
+  if(params.get("place")){const i=+params.get("place");map.panTo(markers[i].getPosition());map.setZoom(17);open(i)}
 }
 
 /* ============ 路由 ============ */
