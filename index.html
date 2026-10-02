@@ -526,6 +526,20 @@ body[data-page="home"] .tico.h{display:none}
   .teamlogo{position:static;height:calc(30 * var(--d));margin-right:calc(10 * var(--d))}
   .brand{font-size:calc(15 * var(--d))}
 }
+
+/* v10：攻略卡片改為由上往下排列（手機兩欄、電腦四欄），不再左右滑動 */
+.band{height:auto}
+.rail,.trivia .rail{display:grid;grid-template-columns:1fr 1fr;gap:calc(34 * var(--k)) calc(30 * var(--k));overflow:visible;scroll-snap-type:none;
+  height:auto;padding:calc(38 * var(--k)) calc(41 * var(--k));align-items:start}
+.rail::after{display:none}
+.card,.trivia .card{flex:none;width:auto;min-width:0}
+.card img,.trivia .card img{width:100%;height:auto;aspect-ratio:359/196}
+.card .cap,.trivia .card .cap{text-overflow:ellipsis}
+.next,.next[hidden]{display:none}
+@media (min-width:768px){
+  .rail,.trivia .rail{grid-template-columns:repeat(4,1fr);gap:calc(20 * var(--d)) calc(35 * var(--d));padding:calc(10 * var(--d)) calc(32 * var(--d)) calc(12 * var(--d)) calc(18.75 * var(--d))}
+  .card img,.trivia .card img{aspect-ratio:163.5/105}
+}
 </style>
 </head>
 <body>
@@ -1591,7 +1605,7 @@ function playScoot(){const w=$("#scootPic");if(!w)return;w.classList.remove("go"
 /* ============ 輪播自動播放（手指碰到就停） ============ */
 let autoT=null;
 function startAuto(){
-  clearInterval(autoT);
+  clearInterval(autoT); return; /* 卡片已改為上下排列，不再自動輪播 */
   if(matchMedia("(prefers-reduced-motion: reduce)").matches)return;
   const rails=[...document.querySelectorAll(".rail")];if(!rails.length)return;
   rails.forEach(r=>{["pointerdown","wheel","touchstart"].forEach(ev=>r.addEventListener(ev,()=>{r.dataset.stop=1},{passive:true}))});
