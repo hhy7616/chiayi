@@ -566,6 +566,55 @@ body[data-page="home"] .tico.h{display:none}
 
 /* v13：平板版「查看更多」列表不顯示介紹文字 */
 @media (min-width:768px) and (max-width:1199px){.lrow p{display:none}.lrow{align-items:center;grid-template-columns:260px 1fr}.list{grid-template-columns:1fr;max-width:760px}.lrow h3{font-size:20px}}
+
+/* v14：雞肉飯統計、其他店家、故事投稿 */
+.poll.other .nm{color:var(--olive)}
+.otherform{margin:calc(18 * var(--k)) calc(40 * var(--k)) 0}
+.otherform label{display:block;font-size:max(13px,calc(26 * var(--k)));font-weight:700;color:var(--title);margin-bottom:6px}
+.otherrow{display:flex;gap:8px}
+.otherrow input,.storybox input:not([type=checkbox]),.storybox select,.storybox textarea{flex:1;min-width:0;width:100%;font:inherit;font-size:max(14px,calc(28 * var(--k)));padding:10px 12px;border:1.5px solid var(--navline);border-radius:10px;background:#fff;color:#222}
+.otherrow input:focus,.storybox input:focus,.storybox select:focus,.storybox textarea:focus{outline:none;border-color:var(--olive)}
+.otherrow .more{margin:0;width:auto;padding:0 18px;height:auto;line-height:1;font-size:max(13px,calc(26 * var(--k)))}
+.otherhint{margin:6px 0 0;font-size:max(12px,calc(23 * var(--k)));color:var(--sub);line-height:1.6}
+.otherhint.bad,.formmsg.bad{color:#B3261E}
+.formmsg.ok{color:var(--olive)}
+.stats{margin:calc(30 * var(--k)) calc(40 * var(--k)) calc(40 * var(--k));background:var(--page);border:1.5px solid var(--navline);border-radius:14px;padding:14px 16px}
+.stats h3{margin:0 0 6px;font-size:max(15px,calc(32 * var(--k)));color:var(--title);display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+.stats h3 small{font-size:max(11px,calc(22 * var(--k)));color:var(--sub);font-weight:500}
+.leader{margin:0 0 8px;font-size:max(13px,calc(26 * var(--k)))}
+.statnote{margin:4px 0;font-size:max(12px,calc(24 * var(--k)));color:var(--sub)}
+.statlist{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.statlist li{display:grid;grid-template-columns:minmax(0,9em) 1fr auto;align-items:center;gap:8px;font-size:max(12px,calc(24 * var(--k)))}
+.statlist li.me .sn{color:var(--orange);font-weight:700}
+.sn{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.sbar{height:10px;background:var(--band);border-radius:99px;overflow:hidden}
+.sbar i{display:block;height:100%;background:var(--tagpeach);border-radius:99px;transition:width .5s}
+.statlist li:first-child .sbar i{background:var(--orange)}
+.sv{color:var(--sub);white-space:nowrap}
+.statref{margin:12px auto 0}
+.mestats .stats{margin-top:0}
+.story .storybox{margin:calc(24 * var(--k)) calc(40 * var(--k)) calc(60 * var(--k));background:var(--band);border-radius:16px;padding:16px}
+.manifesto{margin:0 0 14px;padding:12px 14px;background:var(--page);border-left:4px solid var(--tagpeach);border-radius:8px;font-size:max(13px,calc(26 * var(--k)));line-height:1.8;color:var(--title)}
+#storyForm{display:grid;gap:12px}
+#storyForm label{display:grid;gap:5px;font-size:max(13px,calc(26 * var(--k)));font-weight:700;color:var(--title);position:relative}
+#storyForm label small{font-weight:500;color:var(--sub);margin-left:4px}
+.frow2{display:grid;gap:12px}
+#storyForm textarea{resize:vertical;min-height:120px;line-height:1.7}
+.count{justify-self:end;font-size:12px;font-weight:500;color:var(--sub)}
+#storyForm .agree{display:flex;gap:8px;align-items:flex-start;font-weight:500;line-height:1.6}
+.agree input{margin-top:4px;width:18px;height:18px;flex:none}
+.hp{position:absolute;left:-9999px;width:1px;height:1px;opacity:0}
+.formmsg{margin:0;min-height:1.2em;font-size:max(13px,calc(25 * var(--k)))}
+.submit{justify-self:center;width:auto;padding:0 28px;height:auto;line-height:2.4}
+.submit:disabled{opacity:.5}
+@media (min-width:768px){
+  .stats{margin:calc(14 * var(--d)) calc(20 * var(--d)) calc(6 * var(--d))}
+  .otherform{margin:calc(10 * var(--d)) calc(20 * var(--d)) 0;max-width:640px}
+  .story .storybox{margin:calc(12 * var(--d)) calc(20 * var(--d)) calc(10 * var(--d));background:var(--page)}
+  .frow2{grid-template-columns:1fr 1fr}
+  .statlist li{grid-template-columns:14em 1fr 9em}
+  .sec.story{margin-bottom:calc(30 * var(--d))}
+}
 </style>
 </head>
 <body>
@@ -1317,12 +1366,7 @@ function rail(type){
 const cardHTML=a=>`<a class="card" href="#/article/${a.id}"><img src="${IMG["card_"+a.id]}" alt=""><span class="cap">${esc(a.cap)}</span></a>`;
 function pGuide(){
   return rail("tips")+rail("trivia")+`<section class="sec vote" id="vote"><h2>雞肉飯大比拼！誰是火雞王？</h2>
-    <p class="sub">投票開跑！快來為你心目中的雞肉飯投下神聖的一票！</p><div id="polls">${polls()}</div></section>`;
-}
-function polls(){
-  const mine=store.get("cy-vote",null);
-  return `<div class="polls">${VOTE.map((o,i)=>`<button class="poll" data-vote="${i}" aria-pressed="${mine===i}"><span class="bar"></span><span class="nm">${esc(o)}</span><span class="st">${mine===i?"✓ 已投":"投一票"}</span></button>`).join("")}</div>
-  <p class="pollnote">${mine===null?"每台裝置可投一票，投完還能改投。":"你投給了「"+esc(VOTE[mine])+"」，點其他選項可以改投。"}</p>`;
+    <p class="sub">投票開跑！快來為你心目中的雞肉飯投下神聖的一票！</p><div id="polls">${polls()}</div><div class="statwrap">${statsHTML()}</div></section>`+storyHTML();
 }
 function pList(type){
   const h=type==="tips"?"不可不知ㄉ嘉義生存小撇步":"嘉義人才知道的在地冷知識";
@@ -1363,7 +1407,7 @@ function pAbout(){
 function pMe(){
   const list=store.get("cy-bm",[]).map(art).filter(Boolean); const v=store.get("cy-vote",null);
   return `<div class="plain"><h1>我的收藏</h1></div>${list.length?`<div class="list">${list.map(rowHTML).join("")}</div>`:`<div class="empty">還沒有收藏的文章。<br>在文章下方點「收藏」就會出現在這裡。</div>`}
-  <div class="plain"><h1>我的雞肉飯一票</h1></div><div class="empty">${v===null?`還沒投票，<a href="#/guide#vote" style="text-decoration:underline">去投票</a>`:`你投給了「${esc(VOTE[v])}」`}</div>`;
+  <div class="plain"><h1>我的雞肉飯一票</h1></div><div class="empty">${!myVote()?`還沒投票，<a href="#/guide#vote" style="text-decoration:underline">去投票</a>`:`你投給了「${esc(myVote().shop)}」${myVote().status==="pending"?"（新店家審核中）":""}`}</div><div class="mestats statwrap">${statsHTML()}</div>`;
 }
 function pMap(){
   return `<div class="mapstage" id="stage">
@@ -1578,6 +1622,129 @@ async function initGoogle(params){
   if(params.get("place")){const i=+params.get("place");map.panTo(markers[i].getPosition());map.setZoom(17);open(i)}
 }
 
+/* ============ 後台設定 ============
+   把 Google Apps Script 部署後得到的網址貼在 API_URL 引號裡（https://script.google.com/macros/s/……/exec）。
+   沒有填、或在 claude.ai 預覽時：投票只記在本機、故事投稿改用 Email 寄出。 */
+const API_URL = "https://script.google.com/macros/s/AKfycbzXV-u78Nmln3kTHyWgVL2wKrBk6TuUYM_aYnecrvKg2ljBB-_AS6S5kPlp22PAaXvWTA/exec";
+const TEAM_EMAILS = ["fedora5117@gmail.com","hsin940905@gmail.com"];
+const apiOn=()=>!!API_URL&&selfHosted();
+function deviceId(){let d=store.get("cy-dev",null);if(!d){d=(window.crypto&&crypto.randomUUID)?crypto.randomUUID():Date.now().toString(36)+Math.random().toString(36).slice(2);store.set("cy-dev",d)}return d}
+
+/* ---------- 雞肉飯大比拼 ---------- */
+const SHOP_BAD=["幹","靠北","靠杯","機掰","雞掰","媽的","他媽","屎","白痴","白癡","智障","低能","腦殘","笨蛋","廢物","去死","死全家","垃圾","賤","婊","屌","色情","賭博","毒品"];
+const NOT_SHOP=["隨便","不知道","都可以","都好","沒有","以上皆是","以上皆非","我家","我媽","我阿嬤","哈哈","呵呵","xd","測試","test","asdf","qwer","123"];
+const normShop=s=>String(s||"").replace(/\s+/g,"").replace(/臺/g,"台").trim();
+function checkShop(name){
+  const n=normShop(name), low=n.toLowerCase();
+  if(n.length<2||n.length>20) return "店名長度需介於 2 到 20 個字";
+  if(/https?:|www\.|\.(com|tw|net)|@/.test(low)) return "請輸入店名，不要輸入網址或 Email";
+  if(!/^[\u4e00-\u9fffA-Za-z0-9·．・&＆()（）\-]+$/.test(n)) return "店名只能包含中英文、數字與括號，不能有標點符號或表情符號";
+  if(!/[\u4e00-\u9fffA-Za-z]/.test(n)) return "這看起來不像店名，請輸入正確的店名";
+  if(/^(.)\1+$/.test(n)||/(.{1,3})\1{2,}/.test(n)) return "這看起來不像店名，請輸入正確的店名";
+  if(SHOP_BAD.some(w=>low.includes(w))) return "店名包含不雅字詞，請重新輸入";
+  if(NOT_SHOP.some(w=>low.includes(w))) return "這看起來不像店名，請輸入嘉義雞肉飯店的名稱";
+  return "";
+}
+function myVote(){
+  let v=store.get("cy-vote2",null);
+  if(!v){const old=store.get("cy-vote",null); if(old!==null&&VOTE[old]){v={shop:VOTE[old],status:"approved"};store.set("cy-vote2",v)}}
+  return v;
+}
+let TALLY=null, tallyErr=false, tallyLoading=false;
+async function loadTally(){
+  if(!apiOn()||tallyLoading) return; tallyLoading=true;
+  try{const r=await fetch(API_URL+"?action=tally"); const j=await r.json(); if(j.ok){TALLY=j;tallyErr=false}else tallyErr=true}catch(e){tallyErr=true}
+  tallyLoading=false; renderStats();
+}
+function polls(){
+  const mine=myVote(), isOther=mine&&!VOTE.includes(mine.shop);
+  return `<div class="polls">${VOTE.map(o=>`<button class="poll" data-shop="${esc(o)}" aria-pressed="${!!mine&&mine.shop===o}"><span class="bar"></span><span class="nm">${esc(o)}</span><span class="st">${mine&&mine.shop===o?"✓ 已投":"投一票"}</span></button>`).join("")}
+    <button class="poll other" id="otherBtn" aria-pressed="${!!isOther}" aria-expanded="false"><span class="bar"></span><span class="nm">${isOther?esc(mine.shop):"其他雞肉飯店"}</span><span class="st">${isOther?(mine.status==="approved"?"✓ 已投":"✓ 已投（審核中）"):"自己填寫"}</span></button></div>
+  <form class="otherform" id="otherForm" hidden><label for="otherIn">輸入你心目中的雞肉飯店名</label>
+    <div class="otherrow"><input id="otherIn" maxlength="20" placeholder="輸入店名，例如：某某火雞肉飯" autocomplete="off"><button class="more" type="submit">送出</button></div>
+    <p class="otherhint" id="otherHint">新提名的店家會由團隊人工確認是嘉義的雞肉飯店後，才會出現在統計中。</p></form>
+  <p class="pollnote">${mine?`你投給了「${esc(mine.shop)}」${mine.status==="pending"?"（新店家審核中）":""}，點其他選項可以改投。`:"每台裝置可投一票，投完還能改投。"}</p>`;
+}
+function statsHTML(){
+  if(!apiOn()) return `<div class="stats"><h3>目前戰況</h3><p class="statnote">全站統計要在正式網站上才會顯示（需要連上投票後台）。</p></div>`;
+  if(!TALLY) return `<div class="stats"><h3>目前戰況</h3><p class="statnote">${tallyErr?"統計資料暫時載入失敗，請稍後再試。":"統計資料載入中……"}</p></div>`;
+  const tot=TALLY.total||0, rs=TALLY.results.filter(r=>r.count>0||r.official), top=rs.length&&rs[0].count>0?rs[0].count:-1, mine=myVote();
+  const t=new Date(TALLY.updated);
+  return `<div class="stats"><h3>目前戰況<small>共 ${tot} 票・更新於 ${t.getHours()}:${String(t.getMinutes()).padStart(2,"0")}</small></h3>
+    ${tot?`<p class="leader">👑 目前領先：<b>${rs.filter(r=>r.count===top).map(r=>esc(r.name)).join("、")}</b></p>`:`<p class="statnote">還沒有人投票，搶先投下第一票吧！</p>`}
+    <ol class="statlist">${rs.map(r=>{const pc=tot?Math.round(r.count/tot*1000)/10:0;return `<li class="${mine&&mine.shop===r.name?"me":""}"><span class="sn">${r.count===top&&tot?"👑 ":""}${esc(r.name)}${mine&&mine.shop===r.name?"（你的一票）":""}</span><span class="sbar"><i style="width:${tot?Math.max(2,r.count/Math.max(1,top)*100):0}%"></i></span><span class="sv">${r.count} 票・${pc}%</span></li>`}).join("")}</ol>
+    <button class="more statref" id="statRef">重新整理戰況</button></div>`;
+}
+function renderStats(){document.querySelectorAll(".statwrap").forEach(w=>w.innerHTML=statsHTML())}
+async function castVote(shop){
+  const prev=myVote();
+  store.set("cy-vote2",{shop,status:VOTE.includes(shop)?"approved":"pending"});
+  const pw=$("#polls"); if(pw) pw.innerHTML=polls();
+  if(!apiOn()){toast("已投給 "+shop);renderStats();return}
+  toast("投票中……");
+  try{
+    const r=await fetch(API_URL,{method:"POST",body:JSON.stringify({action:"vote",device:deviceId(),shop})});
+    const j=await r.json();
+    if(!j.ok) throw new Error(j.error||"投票失敗");
+    store.set("cy-vote2",{shop:j.mine.shop,status:j.mine.status}); TALLY=j;
+    toast(j.mine.status==="pending"?"已提名「"+j.mine.shop+"」，審核通過後就會列入統計":"已投給 "+j.mine.shop);
+  }catch(e){ if(prev) store.set("cy-vote2",prev); else store.set("cy-vote2",null); toast(e.message||"投票失敗，請稍後再試"); }
+  const pw2=$("#polls"); if(pw2) pw2.innerHTML=polls(); renderStats();
+}
+
+/* ---------- 嘉義故事投稿 ---------- */
+function storyHTML(){
+  return `<section class="sec story" id="story"><h2>你想跟我們分享的嘉義故事</h2>
+  <p class="sub">你在嘉義的生活小撇步、私藏地點、或是一段只有嘉義人才懂的故事，都歡迎告訴我們！</p>
+  <div class="storybox">
+    <p class="manifesto">這不是一本由我們兩個人寫完就結束的攻略，而是一份可以由生活在這座城市裡的人，一起補充、一起更新的生活指南。你的故事，可能就是下一個新來嘉義的人最需要的那一篇。</p>
+    <form id="storyForm" novalidate>
+      <div class="frow2"><label><span>暱稱<small>（選填）</small></span><input name="name" maxlength="30" placeholder="想怎麼稱呼你？"></label>
+      <label><span>Email<small>（選填，方便我們回覆你）</small></span><input name="email" type="email" maxlength="80" placeholder="name@example.com"></label></div>
+      <label><span>分類</span><select name="category"><option>生存：生活必需的資訊</option><option>生活：讓日子更好的推薦</option><option>生命：和嘉義產生連結的故事</option><option>冷知識</option><option>其他</option></select></label>
+      <label><span>標題<small>（必填）</small></span><input name="title" maxlength="50" required placeholder="一句話說說你的故事"></label>
+      <label><span>內容<small>（必填，至少 20 字）</small></span><textarea name="content" rows="6" maxlength="3000" required placeholder="在哪裡、發生了什麼、想推薦給誰……"></textarea><span class="count" id="storyCount">0 / 3000</span></label>
+      <input class="hp" name="website" tabindex="-1" autocomplete="off" aria-hidden="true">
+      <label class="agree"><input type="checkbox" name="agree"> 我同意小城生活攻略團隊編輯、刊登我的投稿內容（刊登時會標註暱稱）</label>
+      <p class="formmsg" id="storyMsg" role="status"></p>
+      <button class="more submit" type="submit">送出我的嘉義故事</button>
+    </form>
+  </div></section>`;
+}
+async function submitStory(f){
+  const fd=new FormData(f), d=Object.fromEntries(fd.entries()); d.agree=!!fd.get("agree");
+  const msg=$("#storyMsg"); const say=(t,ok)=>{msg.textContent=t;msg.className="formmsg "+(ok?"ok":"bad")};
+  if(d.website) return;
+  if(!String(d.title||"").trim()) return say("請填寫標題");
+  if(String(d.content||"").trim().length<20) return say("故事內容至少需要 20 個字");
+  if(d.email&&!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(d.email)) return say("Email 格式不正確");
+  if(!d.agree) return say("請勾選同意授權，我們才能刊登你的故事");
+  if(!apiOn()){
+    const body=`暱稱：${d.name||"匿名"}\nEmail：${d.email||"（未填寫）"}\n分類：${d.category}\n標題：${d.title}\n\n${d.content}`;
+    location.href=`mailto:${TEAM_EMAILS.join(",")}?subject=${encodeURIComponent("【嘉義故事投稿】"+d.title)}&body=${encodeURIComponent(body)}`;
+    return say("已開啟你的寄信程式，按下寄出就完成投稿囉！",true);
+  }
+  const btn=f.querySelector(".submit"); btn.disabled=true; say("送出中……",true);
+  try{
+    const r=await fetch(API_URL,{method:"POST",body:JSON.stringify({action:"story",device:deviceId(),...d})});
+    const j=await r.json(); if(!j.ok) throw new Error(j.error||"送出失敗");
+    f.reset(); $("#storyCount").textContent="0 / 3000"; say("謝謝你的分享！我們收到你的嘉義故事了 💛",true);
+  }catch(e){ say((e.message||"送出失敗")+"，也可以直接寫信到 "+TEAM_EMAILS[0]); }
+  btn.disabled=false;
+}
+document.addEventListener("submit",e=>{
+  if(e.target.id==="otherForm"){e.preventDefault();const v=$("#otherIn").value;const err=checkShop(v);const h=$("#otherHint");
+    if(err){h.textContent=err;h.classList.add("bad");return} h.classList.remove("bad");
+    const n=normShop(v), off=VOTE.find(o=>normShop(o)===n); castVote(off||n); return}
+  if(e.target.id==="storyForm"){e.preventDefault();submitStory(e.target)}
+});
+document.addEventListener("input",e=>{if(e.target.name==="content"&&e.target.form&&e.target.form.id==="storyForm"){$("#storyCount").textContent=e.target.value.length+" / 3000"}});
+document.addEventListener("click",e=>{
+  const s=e.target.closest("[data-shop]"); if(s){castVote(s.dataset.shop);return}
+  if(e.target.closest("#otherBtn")){const f=$("#otherForm");f.hidden=!f.hidden;$("#otherBtn").setAttribute("aria-expanded",String(!f.hidden));if(!f.hidden)$("#otherIn").focus();return}
+  if(e.target.closest("#statRef")){TALLY=null;renderStats();loadTally();return}
+});
+
 /* ============ 路由 ============ */
 function resetZoom(){
   const vv=window.visualViewport; if(vv&&vv.scale<=1.01) return;
@@ -1607,6 +1774,7 @@ function route(){
   if(anchor){const t=document.getElementById(anchor);if(t)setTimeout(()=>t.scrollIntoView({behavior:"smooth"}),30)}else scrollTo(0,0);
   updateNext();
   if(seg[0]==="article"&&seg[1]==="reverse")setTimeout(playScoot,150);
+  if(seg[0]==="guide"||seg[0]==="me") loadTally();
   {const sa=seg[0]==="article"&&art(seg[1]); if(sa&&sa.series){ setTimeout(playCover,150);
     if(sa.part>0) requestAnimationFrame(()=>{const el=document.getElementById("sp-"+sa.id); if(el){const hh=$(".top").offsetHeight; window.scrollTo(0, el.getBoundingClientRect().top+window.scrollY-hh-6);}}); }}
   startAuto();
@@ -1618,7 +1786,6 @@ function updateNext(){document.querySelectorAll(".rail").forEach(r=>{const b=doc
 
 document.addEventListener("click",e=>{
   const n=e.target.closest(".next"); if(n){const r=document.getElementById(n.dataset.rail);if(r.scrollWidth<=r.clientWidth+4){location.hash="#/list/"+n.dataset.rail.slice(2);return}r.dataset.stop=1;if(r.scrollLeft+r.clientWidth>=r.scrollWidth-4){r.scrollTo({left:0,behavior:"smooth"});return}const c=r.querySelector(".card");r.scrollBy({left:c.offsetWidth+parseFloat(getComputedStyle(r).columnGap||getComputedStyle(r).gap),behavior:"smooth"});return}
-  const v=e.target.closest("[data-vote]"); if(v){const i=+v.dataset.vote;store.set("cy-vote",i);$("#polls").innerHTML=polls();toast("已投給 "+VOTE[i]);return}
   if(e.target.closest("#bm")){const b=$("#bm"),id=b.dataset.id;let l=store.get("cy-bm",[]);const on=!l.includes(id);l=on?[...l,id]:l.filter(x=>x!==id);store.set("cy-bm",l);
     b.setAttribute("aria-pressed",on);b.textContent=on?"已收藏":"收藏";toast(on?"已加入收藏":"已移除收藏");return}
   if(e.target.closest("#share")){openShare($("#share").dataset.id);return}
